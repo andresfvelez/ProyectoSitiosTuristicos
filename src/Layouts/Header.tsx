@@ -1,43 +1,21 @@
 import React from 'react';
 
-// Antd
-import Menu from 'antd/es/menu';
 import Layout from 'antd/es/layout';
-import { BasicProps } from 'antd/es/layout/layout';
-
-import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
-import Link from '@mui/material/Link';
-import User from './Images/user.png';
 
 
 import '../App.css';
-
-// Redux
-import { useDispatch, useSelector } from 'react-redux';
-import { useCallback, useEffect, useState } from 'react';
+import "../Components/Pages/styles/Header.css";
+import {  useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Herramientas
-import { confirmMessage } from '../services/settings/message.service';
 
-// Iconos
-import { LogoutOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
-import { Icon } from '@mui/material';
-import { Button } from 'antd';
-
-
-// Utilidades
-
-
-// Componentes
-const { Header } = Layout;
-
-
+import {imgPerfil} from "../Layouts/Images/imagenPerfilPrueba";
 
  function Headers(props: HeaderProps) {
   const { sections } = props;
   const navigate = useNavigate();
-  
+
+     const [isLoggedIn, setisLoggedIn] = useState<boolean>(true);
+
   return (
     <React.Fragment>
 
@@ -91,11 +69,27 @@ const { Header } = Layout;
                       </a>
                     </li>
                   </ul>
-                  <div className="d-flex icon_colum">
-                    <a href="/login" className="user">
-                      <i className="fa-solid fa-user"></i>
-                    </a>
-                  </div>
+                    <div className="d-flex icon_colum">
+                        {/* Cambiamos el href dinámicamente: si está logueado va al perfil, si no al login */}
+                        <a href={isLoggedIn ? "/profile" : "/login"} className="user-link">
+                            {isLoggedIn ? (
+                                <img
+                                    src={`data:image/png;base64,${imgPerfil}`} // La cadena Base64 con prefijo
+                                    alt="Perfil"
+                                    className="user-profile-img"
+                                    onError={(e) => {
+                                        // Si el b64 sigue mal, esto pone un icono de respaldo
+                                        e.currentTarget.style.display = 'none';
+                                        console.error("Error cargando Base64");
+                                    }}
+                                />
+                            ) : (
+                                <div className="user-icon-circle">
+                                    <i className="fa-solid fa-user"></i>
+                                </div>
+                            )}
+                        </a>
+                    </div>
                 </div>
               </div>
             </nav>

@@ -1,157 +1,81 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
-import { Wrapper } from "@googlemaps/react-wrapper";
-import Draggable from "react-draggable";
 
+// Estilos del contenedor del mapa
 const containerStyle = {
-  width: "1000px",
+  width: "100%",
   height: "600px",
 };
 
-
-
 function Localizacion() {
+  // Estado para guardar la información del lugar (coordenadas, zoom, etc.)
+  const [post, setPost] = useState<any>(null);
   
-  const [post, setpost] = React.useState<any>();
-  const [map, setMap] = React.useState<any>(null);
-  const [marker, setmarker] = React.useState<any>(null);
-  const [renderizar, setrenderizar] = React.useState<boolean>(false);
-
-
-
-  const getListas = useCallback(
-    async () => {
-
-      let destino: any = { coordenadas : {
-        lat: 20,
-        lng: 30,
-      },zoom:3 };  
-      let origen = localStorage.getItem("origen");
-      console.log('origen',origen);
-      if(origen==='lugar')
-      {        
-        destino = JSON.parse(localStorage.getItem("seleccionado") + "");
-        
-      }
-      console.log(destino);
-      setpost(destino);
-      setrenderizar(true);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-  useEffect(() => {
-
-    getListas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-
-
+  // Hook de la librería para cargar el script de Google Maps de forma segura
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
-    googleMapsApiKey: "AIzaSyDGvzshjOLGFi1ZGcLWW7Hi_MPJx3UxqPL",
+    // ¡Importante! La clave de API se carga desde las variables de entorno
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
   });
 
 
-  var marker1: any;
-  const onLoad = React.useCallback(function callback(map: any) {
-    // This is just an example of getting and using the map instance!!! don't just blindly copy!
-    //const bounds = new window.google.maps.LatLngBounds(center);
-    //  map.fitBounds(bounds);
-    console.log(map);
-
-    let origen = localStorage.getItem("origen");
-    if(origen==='lugar')
-    {let  destino = JSON.parse(localStorage.getItem("seleccionado") + "");
-      marker1 = new google.maps.Marker();
-
-      marker1.setAnimation(google.maps.Animation.DROP);
-  
-      marker1.setPosition(new google.maps.LatLng(destino.coordenadas));
-      marker1.setMap(map);
-      marker1.addListener("click", function () {
-        if (marker1.getAnimation() !== null) {
-          marker1.setAnimation(null);
+  // Función para obtener los datos del lugar desde localStorage
+  const getLugarData = useCallback(() => {
+    try {
+      const seleccionadoString = localStorage.getItem("seleccionado");
+      if (seleccionadoString) {
+        const destino = JSON.parse(seleccionadoString);
+        // Asegurarnos de que las coordenadas y el zoom existan y sean números
+        if (destino.coordenadas && typeof destino.coordenadas.lat === 'number' && typeof destino.coordenadas.lng === 'number') {
+          setPost({
+            coordenadas: destino.coordenadas,
+            zoom: typeof destino.zoom === 'number' ? destino.zoom : 15, // Zoom por defecto si no existe
+          });
         } else {
-          marker1.setAnimation(google.maps.Animation.BOUNCE);
+          console.error("Las coordenadas no son válidas en el objeto de localStorage.");
         }
-        
-      });
-    }
-    
-
-    setMap(map);
-  }, []);
-
-  const onUnmount = React.useCallback(function callback(map: any) {
-    setMap(null);
-  }, []);
- 
-  const evento = (event: any) => {
-    let origen = localStorage.getItem("origen");
-  
-    if(origen!='lugar')
-    {
-      if(marker!=null)
-      {
-        marker.setMap(null)
+      } else {
+        // Coordenadas por defecto si no hay nada en localStorage
+        setPost({
+          coordenadas: { lat: 4.5709, lng: -74.2973 }, // Centro de Colombia
+          zoom: 6,
+        });
       }
-
-      const posicion = event.latLng as google.maps.LatLng;    
-      map.panTo(event.latLng as google.maps.LatLng);  
-    
-      console.log(posicion.toJSON())
-     
-
-      marker1 = new google.maps.Marker();
-  
-      marker1.setAnimation(google.maps.Animation.DROP);
-  
-      marker1.setPosition(posicion);
-      marker1.setMap(map);
-     
-     
-      marker1.addListener("click", function () {
-        if (marker1.getAnimation() !== null) {
-          marker1.setAnimation(null);
-        } else {
-          marker1.setAnimation(google.maps.Animation.BOUNCE);
-        }
-        
+    } catch (error) {
+      console.error("Error al parsear los datos de localStorage:", error);
+      // Fallback en caso de error
+      setPost({
+        coordenadas: { lat: 4.5709, lng: 74.2973 },
+        zoom: 6,
       });
-  
-      setmarker(marker1);
     }
-    //marker1.setPosition(posicion);
-    
-    //marker1.setMap(map)
-  };
+  }, []);
 
+  // useEffect para llamar a la función cuando el componente se monta
+  useEffect(() => {
+    getLugarData();
+  }, [getLugarData]);
+
+  // Renderiza un mensaje de carga mientras el API de Google se carga
+  if (!isLoaded || !post) {
+    return <div>Cargando mapa...</div>;
+  }
+
+  // Renderiza el mapa una vez que todo está listo
   return (
-    <>
-      {isLoaded ? (
-        <>
-          {renderizar ? (
-            <>
-              <GoogleMap
-                id="mapa"
-                mapContainerStyle={containerStyle}
-                center={post.coordenadas}
-                zoom={post.zoom}
-                onLoad={onLoad}
-                onUnmount={onUnmount}
-                onClick={evento}
-              >
-                {/* Child components, such as markers, info windows, etc. */}
-                <></>
-              </GoogleMap>
-            </>
-          ):<></>}
-        </>
-      ):<></>}
-    </>
+    <GoogleMap
+      mapContainerStyle={containerStyle}
+      center={post.coordenadas}
+      zoom={post.zoom}
+    >
+      {/* 
+        Este es el marcador. Se renderiza de forma declarativa.
+        La posición viene del estado 'post' que se carga desde localStorage.
+      */}
+      <Marker position={post.coordenadas} />
+    </GoogleMap>
   );
 }
 
-export default Localizacion;
+
+export default React.memo(Localizacion);

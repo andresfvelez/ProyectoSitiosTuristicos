@@ -1,0 +1,305 @@
+/* Contenedor principal: Ocupa todo el ancho pero con límites sanos */
+.carousel-wrapper {
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px 40px; /* Margen a los lados para que no toque los bordes del monitor */
+    box-sizing: border-box;
+}
+
+/* El carrusel: Ahora usaremos 'space-between' para repartir el espacio */
+.cards-track {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    padding: 10px 0;
+    justify-content: flex-start; /* Alinea al inicio, el 'flex-grow' hará el resto */
+}
+
+/* LA TARJETA: Aquí está el truco del auto-ajuste */
+.card-destino {
+    flex: 1 0 calc(20% - 20px);
+    min-width: 250px;
+    max-width: 1fr;
+    background: #fff;
+    border-radius: 25px;
+    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.06); /* Sombra base más suave */
+    display: flex;
+    flex-direction: column;
+    scroll-snap-align: start;
+    cursor: pointer; /* Movido del inline al CSS */
+
+    /* Transiciones suaves para todas las propiedades */
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    position: relative;
+    top: 0;
+}
+
+/* --- EL EFECTO HOVER (CUANDO PASAS EL CURSOR) --- */
+.card-destino:hover {
+    top: -10px; /* Sube la tarjeta */
+    transform: scale(1.02); /* Crece un 2% sutilmente */
+    box-shadow: 0px 20px 40px rgba(0, 0, 0, 0.12); /* Sombra más profunda y difusa */
+}
+
+/* Efecto opcional: Zoom en la imagen al hacer hover */
+.card-destino:hover .image-container img {
+    transform: scale(1.1); /* La imagen hace zoom suave */
+}
+
+/* Ajustes para que la imagen siempre se vea bien */
+.image-container {
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+    border-radius: 25px 25px 0 0;
+    object-fit: cover;
+    transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* --- MEDIA QUERIES PARA PANTALLAS GIGANTES --- */
+/* Si el monitor es muy ancho, mostramos más tarjetas o las hacemos más grandes */
+@media (min-width: 1800px) {
+    .card-destino {
+        /* En pantallas ultra-anchas, mostramos 6 en lugar de 5 */
+        flex: 1 0 calc(16.66% - 20px);
+    }
+}
+
+/* Tablets / Pantallas medianas */
+@media (max-width: 1024px) {
+    .card-destino {
+        flex: 1 0 calc(33.33% - 20px);
+    }
+}
+
+/* Móviles */
+@media (max-width: 600px) {
+    .card-destino {
+        flex: 1 0 85%; /* En móvil si dejamos que se vea una y un trozo de otra */
+    }
+}
+
+/* --- CONTENEDOR MAESTRO DEL MODAL --- */
+.modal-detalle-container {
+    background-color: #fff;
+    border-radius: 30px;
+    overflow: hidden;    /* Corta la imagen para seguir la curva superior */
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 180px); /* Control de altura para el scroll */
+}
+
+/* --- CABECERA DE IMAGEN (FLUSH) --- */
+.modal-img-header {
+    width: 100%;
+    height: 300px;
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    flex-shrink: 0;
+}
+
+.modal-img-header img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* --- ÁREA DE CONTENIDO CON SCROLL --- */
+.modal-scroll-area {
+    overflow-y: auto;
+    flex: 1;
+    padding: 25px 30px;
+}
+
+.modal-country-tag {
+    color: #8c8c8c;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.modal-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title-text {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.modal-rating-text {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    font-size: 1.1rem;
+}
+
+.modal-description-text {
+    margin-top: 15px;
+    color: #555;
+    font-size: 1rem;
+    line-height: 1.6;
+    text-align: justify; /* Justificación solicitada */
+}
+
+.modal-price-row {
+    margin: 20px 0;
+}
+
+.price-old-modal {
+    color: #888;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.price-current-modal {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #222;
+}
+
+/* --- ESTILO DE BOTÓN (PILL) --- */
+.service-pill-selectable {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa; /* Gris muy claro de fondo */
+    color: #7d7d7d;            /* Texto gris */
+    padding: 10px 22px;        /* Más relleno para que parezca botón */
+    border-radius: 25px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #eeeeee; /* Borde sutil */
+    transition: all 0.2s ease-in-out;
+    user-select: none;
+}
+
+/* EFECTO AL PASAR EL MOUSE */
+.service-pill-selectable:hover {
+    background-color: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
+/* --- ESTADO SELECCIONADO (AZUL SEMI-CLARO) --- */
+/* Forzamos el fondo para que pinte toda la cápsula */
+.service-pill-selectable.active {
+    background-color: #e1f5fe !important; /* El azul claro que pediste */
+    color: #0288d1 !important;           /* Texto azul fuerte */
+    border-color: #b3e5fc !important;    /* Borde azulado */
+    box-shadow: 0 4px 10px rgba(2, 136, 209, 0.15); /* Sombra para dar relieve */
+    transform: translateY(-1px);         /* Pequeño salto al seleccionar */
+}
+
+.btn-ver-mas-modal {
+    background: #4dbce9;
+    color: white;
+    padding: 12px 60px;
+    border-radius: 20px;
+    border: none;
+    font-weight: 800;
+    font-size: 1rem;
+    box-shadow: 0 8px 25px rgba(77, 188, 233, 0.4);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- CONTENEDOR HORIZONTAL BLOQUEADO --- */
+.mini-card-scroll {
+    display: flex;
+    flex-direction: row; /* Fuerza el flujo a la derecha */
+    gap: 15px;
+    overflow-x: auto; /* Scroll lateral activo */
+    padding: 10px 5px;
+    scrollbar-width: none;
+}
+.mini-card-scroll::-webkit-scrollbar { display: none; }
+
+/* --- MINI CARDS (NOMBRES RECUPERADOS) --- */
+.mini-box-premium {
+    flex: 0 0 160px;
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid #f2f2f2;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+
+    /* TRANSICIÓN: Suavidad al entrar y salir */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: pointer;
+    position: relative;
+    top: 0;
+}
+
+/* EFECTO HOVER: Elevación sutil */
+.mini-box-premium:hover {
+    top: -5px; /* Sube un poco menos que la grande por proporción */
+    box-shadow: 0 12px 20px rgba(0,0,0,0.1); /* Sombra más profunda */
+    border-color: #d1d1d1; /* El borde se oscurece apenas un poco */
+}
+
+/* ZOOM EN LA IMAGEN: Dinamismo interno */
+.mini-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease; /* Suavidad para el zoom */
+}
+
+.mini-box-premium:hover .mini-img-wrapper img {
+    transform: scale(1.1); /* Zoom sutil en la foto */
+}
+
+/* OPCIONAL: Brillo en el texto al pasar el cursor */
+.mini-box-premium:hover .mini-card-info h5 {
+    color: #4dbce9; /* El nombre cambia al color de tu marca */
+}
+
+/* LA ESTRELLA SOBRE LA FOTO */
+.mini-rating-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 2;
+}
+
+/* ÁREA DEL NOMBRE (AQUÍ ESTÁ LO QUE SE PERDIÓ) */
+.mini-card-info {
+    padding: 10px 5px;
+    text-align: center;
+    background: white;
+}
+
+.mini-card-info h5 {
+    font-size: 0.85rem;
+    margin: 0;
+    font-weight: 700;
+    color: #333;
+    white-space: nowrap; /* Evita que el nombre se corte en dos líneas */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

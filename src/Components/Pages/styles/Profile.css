@@ -1,0 +1,90 @@
+.profile-container {
+    padding: 80px 10%;
+    min-height: 100vh;
+    /* Fondo con ondas/curvas como el mockup */
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 50%, #e3f2fd 100%);
+}
+
+.profile-card {
+    position: relative;
+    background: white !important;
+    border-radius: 30px !important;
+    padding: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.profile-avatar {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.input-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 8px;
+    margin-left: 15px;
+}
+
+/* Estilo Pill (Cápsula) para los inputs */
+.pill-input .MuiOutlinedInput-root {
+    border-radius: 30px !important;
+    background-color: #ffffff;
+    transition: 0.3s;
+}
+
+.pill-input .MuiOutlinedInput-root:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.update-button {
+    background-color: #4dbce9 !important;
+    border-radius: 25px !important;
+    text-transform: none !important;
+    padding: 10px 25px !important;
+    box-shadow: 0 5px 15px rgba(77, 188, 233, 0.4) !important;
+}
+
+/* Trip Cards Estilo Figma */
+.trip-card {
+    border-radius: 20px !important;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05) !important;
+    transition: transform 0.3s;
+}
+
+.trip-card:hover {
+    transform: translateY(-5px);
+}
+
+.trip-image-container {
+    position: relative;
+    height: 180px;
+}
+
+.trip-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.heart-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: white; /* O rojo si está activo */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    cursor: pointer;
+}
+
+.slider-container {
+    position: relative; /* Necesario para que los botones absolutos se posicionen respecto a esto */
+    display: flex;
+    align-items: center;
+    padding: 0 10px; /* Un pequeño respiro a los lados */
+}

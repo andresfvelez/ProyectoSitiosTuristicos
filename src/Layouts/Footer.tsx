@@ -9,7 +9,7 @@ const Footer = () => {
             <div className="row">
                 <div className="col-lg-6 col-md-12 mb-4">
              
-                    <h5 className="mb-3" style={{letterSpacing:'2px',color:'#fff'}}>Secretaria distrital de salud </h5>
+                    <h5 className="mb-3" style={{letterSpacing:'2px',color:'#fff'}}>footer momentaneo </h5>
                     <p style={{color:'#fff'}}>
                         Lorem ipsum dolor sit amet consectetur, adipisicing elit. Iste atque ea quis
                         molestias. Fugiat pariatur maxime quis culpa corporis vitae repudiandae aliquam
