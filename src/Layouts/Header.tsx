@@ -39,7 +39,7 @@ import {imgPerfil} from "../Layouts/Images/imagenPerfilPrueba";
                 >
                     <div className="d-flex icon_colum">
                     <a href="/" className="user">
-                    <span> Inicio</span>
+                    <span>Pagina de Inicio</span>
                     </a>
                   </div>
                   <ul className="navbar-nav m-auto mb-2 mb-lg-0">
