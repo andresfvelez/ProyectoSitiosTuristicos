@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {Modal} from "antd"; // Importamos el Modal de Ant Design
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -16,7 +16,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
     const [filtroModal, setFiltroModal] = useState<string>("");  // Estado para controlar el Popup
     const [renderizar, setrenderizar] = useState<boolean>(false);
     const navigate = useNavigate();
-
+    const [fotoActual, setFotoActual] = useState(0);
     // Función para manejar la navegación desde el modal
     const handleNavigation = () => {
         localStorage.setItem("seleccionado", JSON.stringify(post));
@@ -27,16 +27,35 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             navigate("/pagina2");
         }
     };
+    const imagenAleatoriaFija = useMemo(() => {
+        if (post.imagenes && post.imagenes.length > 0) {
+            const indice = Math.floor(Math.random() * post.imagenes.length);
+            return post.imagenes[indice];
+        }
+        return imgGuatape;
+    }, [post.imagenes]);
+    useEffect(() => {
+        // Solo iniciamos el timer si hay más de una imagen
+        if (post.imagenes && post.imagenes.length > 1) {
+            const interval = setInterval(() => {
+                setFotoActual((prev) => (prev + 1) % post.imagenes.length);
+            }, 10000); // Cambia cada 3000ms (3 segundos)
+
+            return () => clearInterval(interval); // Limpiamos al cerrar el modal
+        }
+    }, [post.imagenes]);
 // Función para las mini-cards de abajo (Explora más)
     if (sub === '1') {
         return (
             <div className="mini-box-premium">
                 <div className="mini-img-wrapper">
-                    <img src={imgGuatape} alt={post.nombre}/>
+                    <img src={imagenAleatoriaFija} alt={post.nombre} />
+
+
                     {/* ESTRELLA FLOTANTE */}
                     <div className="mini-rating-badge">
                         <StarIcon style={{fontSize: '12px', color: '#4dbce9', marginRight: '2px'}}/>
-                        {post.puntuacion || "4.8"}
+                        {post.puntuacion }
                     </div>
                 </div>
                 {/* NOMBRE RECUPERADO ABAJO */}
@@ -52,7 +71,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             <div className="card-destino" onClick={() => setrenderizar(ventana === 'principal')}>
                 <div className="image-container">
                     <img
-                        src={imgGuatape}
+                        src={post.imagenes[0] ||  imgGuatape}
                         alt={post.nombre}
                         onError={(e) => {
                             e.currentTarget.src = "https://via.placeholder.com/300x200?text=Error+Carga";
@@ -69,7 +88,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
                         <h3 className="destination-name">{post.nombre}</h3>
                         <span className="rating-badge">
               <StarIcon fontSize="inherit" style={{marginRight: 4}}/>
-                            {post.puntuacion || "4.5"}
+                            {post.puntuacion}
             </span>
                     </div>
 
@@ -91,16 +110,30 @@ export default function FeaturedPost(props: FeaturedPostProps) {
                 bodyStyle={{padding: 0, borderRadius: '30px', overflow: 'hidden'}}
             >
                 <div className="modal-detalle-container">
-                    <div className="modal-img-header">
-                        <img src={imgGuatape} alt={post.nombre}/>
+                    <img
+                        key={fotoActual} // Esto obliga a React a ejecutar la transición de opacidad
+                        className="modal-img-header"
+                        src={post.imagenes && post.imagenes.length > 0 ? post.imagenes[fotoActual] : imgGuatape}
+                        alt={post.nombre}
+                        style={{ transition: 'opacity 0.5s ease-in-out' }}
+                    />
+                    <div className="dots-container">
+                        {post.imagenes && post.imagenes.length > 1 && post.imagenes.map((_, index) => (
+                            <span
+                                key={index}
+                                className={`dot ${index === fotoActual ? 'active' : ''}`}
+                                onClick={() => setFotoActual(index)} // Cambia la imagen al hacer clic
+                            />
+                        ))}
                     </div>
+
 
                     <div className="modal-scroll-area">
                         <p style={{color: '#888', fontSize: '0.9rem', marginBottom: '0'}}>{post.pais}</p>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                             <h2 style={{fontSize: '1.8rem', fontWeight: 800, margin: '5px 0'}}>{post.nombre}</h2>
                             <span style={{color: '#4dbce9', fontWeight: 'bold'}}>
-                <StarIcon style={{marginRight: '4px'}}/> {post.puntuacion || "4.5"}
+                <StarIcon style={{marginRight: '4px'}}/> {post.puntuacion }
               </span>
                         </div>
 

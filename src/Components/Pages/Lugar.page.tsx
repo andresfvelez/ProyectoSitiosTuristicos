@@ -38,6 +38,7 @@ import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
 import {LugarTuristico} from "../models/LugarTuristico";
+import SeccionComentarios from "./Seccions/Comments";
 
 const Pagina2 = () => {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ const Pagina2 = () => {
       { usuario: "Andrés G.", puntuacion: "4.0", comentario: "Increíble lugar, la vista es insuperable.", imagenes: [imgPerfil] },
       { usuario: "Mariana L.", puntuacion: "5.0", comentario: "El mejor viaje de mi vida, muy recomendado.", imagenes: [imgPerfil] }
     ]);
-
+    console.log(destino)
     setinfo(destino);
     setstars(starArr);
     setrenderizar(true);
@@ -231,12 +232,12 @@ const Pagina2 = () => {
                         </div>
                     }
                     {showlocalizacion &&<div style={{ padding: '32px' }}>
-                      <h2>Parque Nacional Natural Tayrona</h2>
+                      <h2>{info?.nombre}</h2>
 
                       <MapaUbicacion
                           lat={info?.latitud || 0}
                           lng={info?.longitud || 0}
-                          nombre="Parque Tayrona"
+                          nombre={info?.nombre || ""}
                       />
                     </div>}
 
@@ -271,65 +272,13 @@ const Pagina2 = () => {
                 </Grid>
 
                 {/* SECCIÓN COMENTARIOS */}
-                <Box sx={{ mt: 10, mb: 5 }}>
-                  <Typography variant="h4" fontWeight="800" sx={{ mb: 4 }}>Comentarios</Typography>
-                  <Grid container spacing={4}>
-                    <Grid item xs={12} md={5}>
-                      <Paper sx={{ p: 4, borderRadius: "25px", border: "1px solid #eee" }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom>Deja tu opinión</Typography>
-                        <Stack direction="row" sx={{ mb: 2 }}>
-                          {starsuser.map((active, i) => (
-                              <IconButton key={i} onClick={() => {
-                                let newStars = [...starsuser];
-                                for(let j=0; j<=i; j++) newStars[j] = true;
-                                for(let j=i+1; j<5; j++) newStars[j] = false;
-                                setstarsuser(newStars);
-                              }}>
-                                {active ? <StarIcon color="primary" /> : <StarBorderIcon color="primary" />}
-                              </IconButton>
-                          ))}
-                        </Stack>
-                        <Form form={form} onValuesChange={habilitarboton}>
-                          <Form.Item name="comentario">
-                            <TextField fullWidth multiline rows={4} placeholder="Cuéntanos tu experiencia..." />
-                          </Form.Item>
-                          <Button
-                              type="primary"
-                              size="large"
-                              block
-                              disabled={enviar}
-                              style={{ borderRadius: "10px", height: "50px", fontWeight: "bold" }}
-                          >
-                            Enviar Comentario
-                          </Button>
-                        </Form>
-                      </Paper>
-                    </Grid>
-
-                    <Grid item xs={12} md={7}>
-                      <Stack spacing={3}>
-                        {coments.map((c, i) => (
-                            <Paper key={i} sx={{ p: 3, borderRadius: "20px", border: "1px solid #f0f0f0" }}>
-                              <Stack direction="row" spacing={2} alignItems="center">
-                                <Avatar src={(c.imagenes && c.imagenes.length > 0) ? `data:image/png;base64,${c.imagenes}` : undefined} sx={{ bgcolor: "#4dbce9" }}>
-                                  {c.usuario && c.usuario[0]}
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
-                                  <Stack direction="row" justifyContent="space-between">
-                                    <Typography fontWeight="bold">{c.usuario}</Typography>
-                                    <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center' }}>
-                                      {c.puntuacion} <StarIcon fontSize="inherit" />
-                                    </Typography>
-                                  </Stack>
-                                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{c.comentario}</Typography>
-                                </Box>
-                              </Stack>
-                            </Paper>
-                        ))}
-                      </Stack>
-                    </Grid>
-                  </Grid>
-                </Box>
+                <SeccionComentarios
+                    comentariosIniciales={coments}
+                    onEnviarComentario={(data) => {
+                      console.log("Guardando en Firebase:", data.puntuacion, data.comentario);
+                      // Aquí pones tu lógica de dispatch o axios para guardar
+                    }}
+                />
               </Box>
             </Box>
         )}

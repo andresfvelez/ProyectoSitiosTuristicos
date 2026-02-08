@@ -7,7 +7,7 @@ import FooterComponent from "./Layouts/Footer"; // Renombrado para evitar confli
 import Headers from "./Layouts/Header";
 import InitialPage from "./Components/Pages/InitialPage";
 import Pagina2 from "./Components/Pages/Lugar.page";
-import { Publicacion } from "./Components/Pages/Publicar";
+import PublicarDestino  from "./Components/Pages/Publicar";
 import Localizacion from "./Components/Pages/Seccions/Localization";
 import Profile from "./Components/Pages/Profile";
 import Login from "./Components/Pages/Login";
@@ -60,7 +60,7 @@ function App() {
                                     nombre="Parque Tayrona"
                                 />
                             </div>} />
-                            <Route path="/Destinos" element={<Publicacion />} />
+                            <Route path="/Destinos" element={<PublicarDestino />} />
                             <Route path="/profile" element={<Profile />} />
                         </Routes>
                     </Content>

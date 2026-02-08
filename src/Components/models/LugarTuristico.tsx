@@ -12,5 +12,5 @@ export interface LugarTuristico {
     pais:string;
     minimo:number;
     recomendado:number;
-    imagen:string;
+    imagenes:string[];
 }

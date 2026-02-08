@@ -98,13 +98,52 @@
 }
 
 /* --- CABECERA DE IMAGEN (FLUSH) --- */
+
+/* Animación para que la imagen entre suavemente */
 .modal-img-header {
     width: 100%;
+    display: block;
+    /* Cambiamos fadeIn por fadeEffect y añadimos 'forwards' */
+    animation: fadeEffect 0.6s ease-in-out forwards;
     height: 300px;
     margin: 0;
     padding: 0;
     line-height: 0;
     flex-shrink: 0;
+    object-fit: cover;
+    background-color: #000; /* Fondo negro para que el desvanecido sea elegante */
+}
+
+@keyframes fadeEffect {
+    0% {
+        opacity: 0;
+        transform: scale(1.01); /* Un pequeño zoom para suavizar la transición */
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Contenedor de los puntos */
+.dots-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ccc; /* Color cuando no está seleccionada */
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.dot.active {
+    background-color: #4dbce9; /* Color de la foto actual */
 }
 
 .modal-img-header img {

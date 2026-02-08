@@ -10,8 +10,9 @@ import FeaturedPost from "./Seccions/Cards";
 import {imgPerfil} from "../../Layouts/Images/imagenPerfilPrueba";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import {obtenerLugares} from "../../services/lugaresService";
+import {obtenerImagenesPorDestino, obtenerLugares} from "../../services/lugaresService";
 import {LugarTuristico} from "../models/LugarTuristico";
+import SelectorImagenes from "./Seccions/SelectorImages";
 
 const Profile: FunctionComponent = () => {
   // Tu data Base64 para pruebas
@@ -160,7 +161,7 @@ const Profile: FunctionComponent = () => {
     },
   ];
   const [lugares, setLugares] = useState<LugarTuristico[]>([]);
-
+  const [fotoPerfil, setFotoPerfil] = useState<(File | null)[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -180,7 +181,26 @@ const Profile: FunctionComponent = () => {
   };
   useEffect(() => {
 
-    obtenerLugares().then(setLugares);
+    const cargarTodo = async () => {
+      // 1. Obtener la lista base de lugares
+      const listaLugares = await obtenerLugares();
+
+      const lugaresConFotos = await Promise.all(
+          listaLugares.map(async (lugar) => {
+            const fotos = await obtenerImagenesPorDestino(lugar.id!);
+            return {
+              ...lugar,
+              imagenes: fotos // Seteamos el array de strings Base64
+            };
+          })
+      );
+      console.log(lugaresConFotos)
+
+      setLugares(lugaresConFotos);
+    };
+
+    cargarTodo();
+
 
   }, []);
   return (
@@ -193,6 +213,13 @@ const Profile: FunctionComponent = () => {
               className="profile-avatar"
               sx={{ width: 120, height: 120, border: '5px solid white' }}
           />
+
+          <SelectorImagenes
+              esPerfil={true}
+              label="Foto de Perfil"
+              onFilesChange={(files) => setFotoPerfil(files)}
+          />
+
 
           <Grid container spacing={3} sx={{ mt: 5 }}>
             <Grid item xs={12} md={6}>
@@ -244,19 +271,23 @@ const Profile: FunctionComponent = () => {
           <div className="carousel-wrapper">
             <h2 className="section-title">Destinos Populares</h2>
 
-            <div className="slider-container">
-              <button className="nav-btn left" onClick={() => scroll("left")}>
-                <ArrowBackIosIcon/>
-              </button>
-              <div className="cards-track" ref={scrollRef}>
-                {lugares.map((post, index) => (
-                    <FeaturedPost key={index} post={post} ventana="principal" sub="0"/>
-                ))}
-              </div>
-              <button className="nav-btn right" onClick={() => scroll("right")}>
-                <ArrowForwardIosIcon/>
-              </button>
-            </div>
+            {lugares.length>0 && (
+                <div className="slider-container">
+                  <button className="nav-btn left" onClick={() => scroll("left")}>
+                    <ArrowBackIosIcon/>
+                  </button>
+                  <div className="cards-track" ref={scrollRef}>
+                    {lugares.map((post, index) => (
+                        <FeaturedPost key={index} post={post} ventana="principal" sub="0"/>
+                    ))}
+                  </div>
+                  <button className="nav-btn right" onClick={() => scroll("right")}>
+                    <ArrowForwardIosIcon/>
+                  </button>
+                </div>
+            )
+            }
+
           </div>
         </Grid>
       </Box>

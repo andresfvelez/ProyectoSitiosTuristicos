@@ -22,7 +22,7 @@ import {ApiService} from '../../services/ApiServices';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
-import {obtenerLugares} from "../../services/lugaresService";
+import {obtenerImagenesPorDestino, obtenerLugares} from "../../services/lugaresService";
 
 
 const InitialPage = () => {
@@ -68,9 +68,26 @@ const InitialPage = () => {
     //const getMenu = UpdateMenu();
 
     useEffect(() => {
+        const cargarTodo = async () => {
+            // 1. Obtener la lista base de lugares
+            const listaLugares = await obtenerLugares();
 
-        obtenerLugares().then(setLugares);
-        setrenderizar(true);
+            const lugaresConFotos = await Promise.all(
+                listaLugares.map(async (lugar) => {
+                    const fotos = await obtenerImagenesPorDestino(lugar.id!);
+                    return {
+                        ...lugar,
+                        imagenes: fotos // Seteamos el array de strings Base64
+                    };
+                })
+            );
+            console.log(lugaresConFotos)
+
+            setLugares(lugaresConFotos);
+            setrenderizar(true);
+        };
+
+        cargarTodo();
         //getListas();
 
     }, []);
@@ -275,19 +292,22 @@ const InitialPage = () => {
                     <div className="carousel-wrapper">
                         <h2 className="section-title">Destinos Populares</h2>
 
-                        <div className="slider-container">
-                            <button className="nav-btn left" onClick={() => scroll("left")}>
-                                <ArrowBackIosIcon/>
-                            </button>
-                           <div className="cards-track" ref={scrollRef}>
-                                {lugares.map((post, index) => (
-                                    <FeaturedPost key={index} post={post} ventana="principal" sub="0"/>
-                                ))}
+                        {lugares.length > 0 && (
+                            <div className="slider-container">
+                                <button className="nav-btn left" onClick={() => scroll("left")}>
+                                    <ArrowBackIosIcon/>
+                                </button>
+                                <div className="cards-track" ref={scrollRef}>
+                                    {lugares.map((post, index) => (
+                                        <FeaturedPost key={index} post={post} ventana="principal" sub="0"/>
+                                    ))}
+                                </div>
+                                <button className="nav-btn right" onClick={() => scroll("right")}>
+                                    <ArrowForwardIosIcon/>
+                                </button>
                             </div>
-                            <button className="nav-btn right" onClick={() => scroll("right")}>
-                                <ArrowForwardIosIcon/>
-                            </button>
-                        </div>
+                        )}
+
                     </div>
 
 

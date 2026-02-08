@@ -1,10 +1,4 @@
-
-// Initialize Firebase
-
-
 export class ApiService {
-
-
     /*
 ObtenerMunicipios:any = async () =>
    this.get(`https://www.datos.gov.co/resource/xdk5-pm3f.json?c_digo_dane_del_municipio= '15.832'`);
@@ -13,8 +7,6 @@ ObtenerMunicipios:any = async () =>
    ObtenerDepartamentos:any = async () =>
    this.get(`https://www.datos.gov.co/resource/vcjz-niiq.json`);
 */
-   
-
 
  get = async(  url:any )  => {
 let respuesta='';
@@ -25,10 +17,7 @@ let respuesta='';
       })
       .then(response => response.json())
       .then(response => {
-         
           respuesta=response;
-        
-      
       })
       .catch(err => { console.log(err); 
       });
@@ -48,15 +37,10 @@ post = async(  url:any,payload:any )  => {
           })
           .then(response => response.json())
           .then(response => {
-             
               respuesta=response;
-            
-          
           })
           .catch(err => { console.log(err); 
           });
-         
-        
     return respuesta;
     };
 }
