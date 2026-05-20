@@ -10,58 +10,38 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-
 import Autocomplete from '@mui/material/Autocomplete';
-import { useNavigate } from 'react-router-dom';
-
-
-//import { ApiService } from 'app/services/Apis.service';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { Button, Form } from 'antd';
 import Swal from 'sweetalert2';
+import emailjs from "@emailjs/browser";
+import {doc, DocumentData, getDoc, setDoc} from "firebase/firestore";
+import {db,auth} from "../../firebase/firebaseConfig";
+import CryptoJS from "crypto-js";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import firebase from "firebase/compat";
+
 
 function Copyright(props: any) {
   return (
-    <Typography variant="body2" color="text.secondary" align="center" {...props}>
-      {'Copyright © '}
-      <Link color="inherit" href="https://mui.com/">
-        Your Website
-      </Link>{' '}
-      {new Date().getFullYear()}
-      {'.'}
-    </Typography>
+      <Typography variant="body2" color="text.secondary" align="center" {...props}>
+        {'Copyright © '}
+        <Link color="inherit" href="https://mui.com/">
+          Your Website
+        </Link>{' '}
+        {new Date().getFullYear()}
+        {'.'}
+      </Typography>
   );
 }
 
 const theme = createTheme();
 
+let email_data: any;
 export default function SignUp() {
-  const getListas = useCallback(
-    async () => {
-      let destino: any = { puntuacion: "4.5" };
-      let star: any[] = ["0", "0", "0", "0", "0"];
-      destino = JSON.parse(localStorage.getItem("seleccionado") + "");
 
-      for (
-        let index = 0;
-        index < Number.parseInt(destino.puntuacion);
-        index++
-      ) {
-        star[index] = "1";
-      }
-      console.log(destino.puntuacion);
-      console.log(destino.puntuacion.substring(2, 3));
-      if (destino.puntuacion.substring(2, 3) === "5") {
-        star[Number.parseInt(destino.puntuacion)] = "0.5";
-      }
-
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
 
   useEffect(() => {
-    getListas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -80,17 +60,115 @@ export default function SignUp() {
     });
   };
 
-  const onSubmit = () => {
+  const obtenerMessagingData = async () => {
+    try {
+      const docRef = doc(db, "Constantes", "claves");
+      const docSnap = await getDoc(docRef);
+
+      const docRefEmail = doc(db, "Constantes", "email_data");
+      const docSnapEmail = await getDoc(docRefEmail);
+      if (!docSnap.exists()) throw new Error("No existe la frase en Firebase");
+
+      const fraseMaestra = docSnap.data().encriptado;
+      email_data = docSnapEmail.data();
+      email_data.template_creacion_usuarios=desencriptarDatos(email_data.template_creacion_usuarios,fraseMaestra);
+      email_data.service=desencriptarDatos(email_data.service,fraseMaestra);
+      email_data.key=desencriptarDatos(email_data.key, fraseMaestra);
+
+    } catch (error) {
+      console.error("Error desencriptando:", error);
+      return null;
+    }
+  };
+
+  const encriptarDatos = (data: string, key: string): string => {
+    try {
+      console.log("data:",data)
+      const ciphertext = CryptoJS.AES.encrypt(data, key);
+      // @ts-ignore
+      const textoEncriptado = ciphertext.toString();
+      console.log(textoEncriptado)
+
+      if (!textoEncriptado) {
+        throw new Error("La llave es incorrecta o los datos están corruptos.");
+      }
+
+      return textoEncriptado;
+    } catch (error) {
+      console.error("Error en el proceso de desencriptación:", error);
+      return "";
+    }
+  };
+  const desencriptarDatos = (data: string, key: string): string => {
+    try {
+      const bytes = CryptoJS.AES.decrypt(data, key);
+      const textoOriginal = bytes.toString(CryptoJS.enc.Utf8);
+
+      if (!textoOriginal) {
+        throw new Error("La llave es incorrecta o los datos están corruptos.");
+      }
+
+      return textoOriginal;
+    } catch (error) {
+      console.error("Error en el proceso de desencriptación:", error);
+      return "";
+    }
+  };
+
+  const onSubmit = async () => {
     const valores = form.getFieldsValue();
     console.log({
       fullname: valores.fullName,
       email: valores.email,
-      country: valores.country,
+      //country: valores.country,
       password: valores.password,
       rpassword: valores.rpassword
     });
+
+
     if (valores.password === valores.rpassword) {
-      form.resetFields()
+
+      const credenciales = await createUserWithEmailAndPassword(auth, valores.email, valores.password);
+      const uid = credenciales.user.uid; // Google nos devuelve el ID único universal (UID)
+
+      // 2. CONTROL DE ROLES (Cloud Firestore)
+      // Guardamos el perfil en Firestore forzando a que el ID del documento sea el mismo UID de Auth
+      await setDoc(doc(db, "usuarios", uid), {
+        fullName: valores.fullName,
+        email: valores.email,
+        rol: "turista", // Rol por defecto indexado para el control de acceso (RBAC)
+        fechaCreacion: Date.now()
+      });
+      console.log("✅ Usuario registrado en Auth y rol asignado en Firestore con UID:", uid);
+      await obtenerMessagingData();
+      try {
+        // Parámetros que coinciden con las llaves {{}} creadas en tu plantilla de EmailJS
+        const parametrosPlantilla = {
+          user: valores.fullName,
+          email_user: valores.email,
+          password: valores.password,
+          link: window.location.origin
+        };
+
+
+        // Reemplaza estos tres strings con tus credenciales reales del panel de EmailJS
+        const SERVICE_ID = email_data.service;
+        const TEMPLATE_ID = email_data.template_creacion_usuarios;
+        const PUBLIC_KEY = email_data.key;
+
+        const resultado = await emailjs.send(
+            SERVICE_ID,
+            TEMPLATE_ID,
+            parametrosPlantilla,
+            PUBLIC_KEY
+        );
+
+        if (resultado.status === 200) {
+          console.log("🚀 Correo electrónico de bienvenida enviado con éxito vía EmailJS.");
+        }
+      } catch (error) {
+        console.error("❌ Fallo en el envío de correo transaccional:", error);
+      }
     } else {
       form.resetFields(['password', 'rpassword'])
 
@@ -157,7 +235,7 @@ export default function SignUp() {
                 </Form.Item>
               </Grid>
 
-              <Grid item xs={12}>
+              {/* <Grid item xs={12}>
                 <Form.Item
                   label=""
                   name="country"
@@ -198,7 +276,8 @@ export default function SignUp() {
                     )}
                   />
                 </Form.Item>
-              </Grid>
+              </Grid> */}
+
               <Grid item xs={12}>
                 <Form.Item
                   label=""

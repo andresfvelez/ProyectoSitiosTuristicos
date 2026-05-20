@@ -144,7 +144,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
                             <div style={{fontSize: '1.2rem', fontWeight: '800', color: '#222'}}>{post.minimo}</div>
                         </div>
 
-                        {/* BOTONES INTERACTIVOS AZUL CLARO */}
+
                         <div style={{display: 'flex', gap: '12px', margin: '20px 0'}}>
                       <span
                           className={`service-pill-selectable ${filtroModal === "rest" ? "active" : ""}`}

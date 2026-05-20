@@ -14,3 +14,10 @@ export interface LugarTuristico {
     recomendado:number;
     imagenes:string[];
 }
+export interface Opinion {
+    usuario: string;
+    comentario: string;
+    puntuacion: number;
+    fuente: string;
+    fecha: string;
+}

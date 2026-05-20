@@ -5,7 +5,7 @@ import { LugarTuristico } from '../Components/models/LugarTuristico';
 
 
 export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
-  const snapshot = await getDocs(collection(db, 'lugares_turisticos'));
+  const snapshot = await getDocs(collection(db, 'lugares_turisticos_scrapped'));
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
@@ -66,20 +66,31 @@ export const guardarDestino = async (datos: any, archivos: File[], ubicacion: {l
     const nuevoLugar: any = {
       nombre: datos.nombre || "",
       descripcion: datos.descripcion || "",
-      categoria: datos.categoria || "restaurante",
+      categoria: datos.categoria || "Atractivo Turístico",
       latitud: ubicacion.lat,
       longitud: ubicacion.lng,
-      ciudad: datos.ciudad || datos.pais || "", // Ajuste según tu form
+      ciudad: datos.ciudad || "",
       departamento: datos.departamento || "",
-      puntuacion: 0,
-      opiniones: "",
-      pais: datos.pais || "",
+      puntuacion: Number(datos.puntuacion) || 0,
+      opiniones: datos.opiniones || "[]",
+      pais: datos.pais || "Colombia",
       minimo: datos.minimo || 0,
       recomendado: datos.recomendado || 0,
       fechaRegistro: Date.now(),
-      imagenes: [] // Inicialmente vacío
+      imagenes: [], // Se llenará después de subir los archivos
+
+      // --- LOS 9 CRITERIOS CLAVE PARA EL FILTRADO ---
+      categoriaPrincipal: datos.categoriaPrincipal || "Cultura",
+      perfilUsuario: datos.perfilUsuario || ["Pareja", "Amigos"], // Array
+      nivelGasto: Number(datos.nivelGasto) || 2, // 1, 2 o 3
+      clima: datos.clima || "Templado",
+      popularidad: datos.popularidad ?? false, // Boolean: false es Joya Oculta
+      estanciaSugerida: datos.estanciaSugerida || "Fin de semana",
+      dificultad: datos.dificultad || "Bajo (Relax)",
+      entorno: datos.entorno || "Rural",
+      acceso: datos.acceso || "Vehículo simple"
     };
-    const destinoDoc = await addDoc(collection(db, "lugares_turisticos"), nuevoLugar);
+    const destinoDoc = await addDoc(collection(db, "lugares_turisticos_scrapped"), nuevoLugar);
 
 
     const idDestino = destinoDoc.id;

@@ -23,6 +23,8 @@ import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
 import {obtenerImagenesPorDestino, obtenerLugares} from "../../services/lugaresService";
+import Scrapper from "./Scrapper";
+import {ejecutarConsultaIA} from "../../services/IA/IaExecuter";
 
 
 const InitialPage = () => {
@@ -77,7 +79,7 @@ const InitialPage = () => {
                     const fotos = await obtenerImagenesPorDestino(lugar.id!);
                     return {
                         ...lugar,
-                        imagenes: fotos // Seteamos el array de strings Base64
+                        imagenes: fotos
                     };
                 })
             );
@@ -85,6 +87,10 @@ const InitialPage = () => {
 
             setLugares(lugaresConFotos);
             setrenderizar(true);
+
+            if (lugaresConFotos.length > 0) {
+                await ejecutarConsultaIA(lugaresConFotos, null);
+            }
         };
 
         cargarTodo();
@@ -120,142 +126,6 @@ const InitialPage = () => {
         }
     };
 
-    const featuredPosts = [
-        {
-            pais: 'colombia',
-            lugar: 'Guatape',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 150,0',
-            minimo: 'Desde US $ 85,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '3.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },{
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },{
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },{
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },{
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },
-        {
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        }, {
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        }, {
-            pais: 'colombia',
-            lugar: 'Eje Cafetero',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },
-        {
-            pais: 'colombia',
-            lugar: 'la costa',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '4.5',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },
-        {
-            pais: 'colombia',
-            lugar: 'bogota',
-            image: '../../../Layouts/Images/ImagenCard.png',
-            recomendado: 'US $ 100,0',
-            minimo: 'Desde US $ 60,00',
-            descripcion: 'una larga descripcion',
-            puntuacion: '5.0',
-            opiniones: '200',
-            coordenadas: {
-                lat: 70,
-                lng: 80,
-            }
-        },
-    ];
 
 
     return (
@@ -315,20 +185,18 @@ const InitialPage = () => {
 
                         <div className='card card-body'>
                             <span><h4 className='app-subtitle mt-3'><span>Pagina de inicio</span></h4></span>
-
-
-                            <p className="mt-2">
-            <span>
-             Este es un mensaje de prueba
-            </span>
-                            </p>
-
-                            <p>
-            <span>
-            Este es un mensaje de prueba2 &nbsp;<br/>
-            </span>
-                            </p>
                         </div>
+
+                    </div>
+
+                    <div style={{ maxWidth: '800px', margin: '50px auto' }}>
+                        <h1>Configuración del Sistema</h1>
+                        <p>Utiliza esta herramienta para poblar la base de datos de Firebase con información real de internet.</p>
+
+                        <hr />
+
+
+                        <Scrapper />
 
                     </div>
 

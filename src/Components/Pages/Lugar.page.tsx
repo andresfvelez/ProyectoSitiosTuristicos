@@ -37,7 +37,7 @@ import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
-import {LugarTuristico} from "../models/LugarTuristico";
+import {LugarTuristico, Opinion} from "../models/LugarTuristico";
 import SeccionComentarios from "./Seccions/Comments";
 
 const Pagina2 = () => {
@@ -140,6 +140,18 @@ const Pagina2 = () => {
       });
     }
   };
+  const listaOpiniones: Opinion[] = React.useMemo(() => {
+    try {
+      // Si info.opiniones existe y es un string, lo parseamos
+      return typeof info?.opiniones === 'string'
+          ? JSON.parse(info.opiniones)
+          : (info?.opiniones || []);
+    } catch (e) {
+      console.error("Error al parsear opiniones", e);
+      return [];
+    }
+  }, [info?.opiniones]);
+
   return (
       <>
         {renderizar && (
@@ -154,8 +166,15 @@ const Pagina2 = () => {
                     borderRadius: "0 0 60px 60px",
                     backgroundSize: "cover",
                     backgroundPosition: "center",
-                    backgroundImage: `url(${BannerImg})`,
-                    mb: 5
+                    backgroundImage: info?.imagenes && info?.imagenes[0]
+                        ? `url(${info?.imagenes[0].startsWith('data:')
+                            ? info?.imagenes[0]
+                            : `data:image/jpeg;base64,${info?.imagenes[0]}`})`
+                        : 'url(https://via.placeholder.com/800x400?text=Cargando+Imagen...)',
+                    mb: 5,
+                    backgroundColor: "rgba(0,0,0,0.3)",
+                    backgroundBlendMode: "overlay"
+
                   }}
               >
 
@@ -173,7 +192,7 @@ const Pagina2 = () => {
 
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                       <Typography variant="body2" color="text.secondary" fontWeight="bold">
-                        ({info?.opiniones} Opiniones)
+                        ({listaOpiniones.length} Opiniones)
                       </Typography>
                       <Box sx={{ color: "#4dbce9" }}>
                         {stars.map((s, i) => (
@@ -273,7 +292,7 @@ const Pagina2 = () => {
 
                 {/* SECCIÓN COMENTARIOS */}
                 <SeccionComentarios
-                    comentariosIniciales={coments}
+                    comentariosIniciales={listaOpiniones}
                     onEnviarComentario={(data) => {
                       console.log("Guardando en Firebase:", data.puntuacion, data.comentario);
                       // Aquí pones tu lógica de dispatch o axios para guardar
