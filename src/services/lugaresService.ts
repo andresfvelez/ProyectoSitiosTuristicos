@@ -148,59 +148,69 @@ const comprimirImagen = (file: File): Promise<string> => {
   });
 };
 
-export const guardarDestino = async (datos: any, archivos: File[], ubicacion: {lat: number, lng: number}) => {
+export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { lat: number, lng: number }) => {
   try {
-    // 1. Guardar primero el destino para obtener su ID
+    // 1. Estructuramos el objeto del nuevo lugar con todos los datos estándar y nuevos
     const nuevoLugar: any = {
       nombre: datos.nombre || "",
       descripcion: datos.descripcion || "",
-      categoria: datos.categoria || "Atractivo Turístico",
+      categoria: datos.categoria || "restaurante",
       latitud: ubicacion.lat,
       longitud: ubicacion.lng,
       ciudad: datos.ciudad || "",
       departamento: datos.departamento || "",
       puntuacion: Number(datos.puntuacion) || 0,
-      opiniones: datos.opiniones || "[]",
       pais: datos.pais || "Colombia",
-      minimo: datos.minimo || 0,
-      recomendado: datos.recomendado || 0,
+      minimo: Number(datos.minimo) || 0,
+      recomendado: Number(datos.recomendado) || Number(datos.minimo) || 0,
       fechaRegistro: Date.now(),
-      imagenes: [], // Se llenará después de subir los archivos
+      imagenes: [],
 
-      // --- LOS 9 CRITERIOS CLAVE PARA EL FILTRADO ---
-      categoriaPrincipal: datos.categoriaPrincipal || "Cultura",
-      perfilUsuario: datos.perfilUsuario || ["Pareja", "Amigos"], // Array
-      nivelGasto: Number(datos.nivelGasto) || 2, // 1, 2 o 3
+      // --- NUEVOS CAMPOS DE CALIDAD Y VERIFICACIÓN ---
+      rnt: datos.rnt || "",
+      unescoId: datos.unescoId || "",
+      actividades: datos.actividades || [], // Array ['senderismo', 'camping', ...]
+      servicios: datos.servicios || [],     // Array ['wifi', 'parqueadero', ...]
+      petFriendly: Boolean(datos.petFriendly),
+      accesibleSillaRuedas: Boolean(datos.accesibleSillaRuedas),
+      dificultad: datos.dificultad || "Baja",
+      contactoWhatsapp: datos.contactoWhatsapp || "",
+      queLlevar: datos.queLlevar || "",
+
+      // --- CRITERIOS CLAVE PARA FILTRADO DE IA Y BÚSQUEDAS ---
+      categoriaPrincipal: datos.categoria || "Cultura",
+      perfilUsuario: datos.perfilUsuario || ["Pareja", "Amigos"],
+      nivelGasto: Number(datos.nivelGasto) || 2,
       clima: datos.clima || "Templado",
-      popularidad: datos.popularidad ?? false, // Boolean: false es Joya Oculta
+      popularidad: datos.popularidad ?? false,
       estanciaSugerida: datos.estanciaSugerida || "Fin de semana",
-      dificultad: datos.dificultad || "Bajo (Relax)",
       entorno: datos.entorno || "Rural",
       acceso: datos.acceso || "Vehículo simple"
     };
+
+    // Guardar en la colección de lugares
     const destinoDoc = await addDoc(collection(db, "lugares_turisticos_scrapped"), nuevoLugar);
-
-
     const idDestino = destinoDoc.id;
 
-    // 2. Convertir y guardar cada imagen vinculada
-    const promesasImagenes = archivos.filter(f => f !== null).map(async (file) => {
-
-      const b64Comprimido = await comprimirImagen(file);
-      return addDoc(collection(db, "imagenes_b64"), {
-        idVinculado: idDestino,
-        esLugar: true,
-        base64: b64Comprimido,
-        fechaCreacion: Date.now()
-      });
-    });
+    // 2. Convertir y guardar cada imagen vinculada en Base64
+    const promesasImagenes = archivos
+        .filter(f => f !== null)
+        .map(async (file) => {
+          const b64Comprimido = await comprimirImagen(file); // Tu helper existente
+          return addDoc(collection(db, "imagenes_b64"), {
+            idVinculado: idDestino,
+            esLugar: true,
+            base64: b64Comprimido,
+            fechaCreacion: Date.now()
+          });
+        });
 
     await Promise.all(promesasImagenes);
     return idDestino;
 
   } catch (error) {
-    console.error("Error guardando en B64:", error);
+    console.error("Error guardando destino en Firestore:", error);
     throw error;
   }
-  };
+};
 

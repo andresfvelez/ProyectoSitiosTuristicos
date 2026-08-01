@@ -13,6 +13,17 @@ export interface LugarTuristico {
     minimo:number;
     recomendado:number;
     imagenes:string[];
+    rnt?: string;                     // Registro Nacional de Turismo
+    unescoId?: string;                // ID UNESCO si aplica
+    esVerificado?: boolean;           // Sello interno de verificación
+    actividades?: string[];           // Array de actividades (Checklist)
+    servicios?: string[];             // Array de servicios inclusivos
+    dificultad?: 'Baja' | 'Media' | 'Alta';
+    petFriendly?: boolean;
+    accesibleSillaRuedas?: boolean;
+    contactoWhatsapp?: string;
+    sitioWeb?: string;
+    queLlevar?: string;
 }
 export interface Opinion {
     lugarId: string;
