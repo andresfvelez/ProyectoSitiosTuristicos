@@ -5,6 +5,7 @@ import { guardarDestino } from "../../services/lugaresService";
 import { db } from "../../firebase/firebaseConfig";
 import { GEMINI_API_KEY, SERPER_API_KEY_ENCRYPTED } from "../../env";
 import nlp from "compromise";
+import {LugarTuristico} from "../models/LugarTuristico";
 
 const ScrapperMejorado = () => {
 
@@ -560,31 +561,40 @@ const ScrapperMejorado = () => {
                 }
 
 
-                const payload = {
+
+
+                const payload: any = {
                     nombre: nombreFinal,
-                    descripcion: lugar.description || metaIA.descripcion,
-                    actividadesPrincipales: metaIA.actividades,
-                    puntoReferencia: metaIA.puntoReferencia,
-                    categoria: lugar.city ? "Atractivo Turístico" : "Área Natural",
+                    descripcion: lugar.description || metaIA.descripcion || "",
+                    // Usamos 'aventura' por defecto para los atractivos/áreas naturales del scraper
+                    categoria: "aventura",
                     ciudad: lugar.city?.name || "Colombia",
                     pais: "Colombia",
-                    puntuacion: parseFloat(promedio),
-                    opiniones: JSON.stringify(opiniones), // Aquí va el JSON mapeado con el usuarioId libre de colisiones
+                    puntuacion: parseFloat(promedio) || 0,
                     minimo: 0,
-                    recommended: 1,
+                    recomendado: 1, // 👈 Corregido: antes decía 'recommended'
 
-                    categoriaPrincipal: clasificacion.categoriaPrincipal,
-                    perfilUsuario: clasificacion.perfilUsuario,
-                    nivelGasto: clasificacion.nivelGasto,
-                    clima: clasificacion.clima,
-                    popularidad: clasificacion.popularidad,
-                    estanciaSugerida: clasificacion.estanciaSugerida,
-                    dificultad: clasificacion.dificultad,
-                    entorno: clasificacion.entorno,
-                    acceso: clasificacion.acceso
+                    // 🆕 MAPEO A LAS NUEVAS PROPIEDADES UNIFICADAS
+                    tagsEspeciales: Array.isArray(metaIA.actividades) ? metaIA.actividades : [], // 👈 Antes 'actividadesPrincipales'
+                    servicios: [],
+                    petFriendly: false,
+                    accesibleSillaRuedas: false,
+                    rnt: "",
+                    unescoId: "",
+                    contactoWhatsapp: "",
+                    queLlevar: metaIA.puntoReferencia || "", // Reubicamos el punto de referencia temporalmente aquí si aplica
+
+                    // --- CRITERIOS CLAVE PARA FILTRADO DE IA Y BÚSQUEDAS ---
+                    categoriaPrincipal: clasificacion.categoriaPrincipal || "Atractivo Turístico",
+                    perfilUsuario: clasificacion.perfilUsuario || ["Pareja", "Amigos"],
+                    nivelGasto: Number(clasificacion.nivelGasto) || 2,
+                    clima: clasificacion.clima || "Templado",
+                    popularidad: clasificacion.popularidad ?? false,
+                    estanciaSugerida: clasificacion.estanciaSugerida || "Fin de semana",
+                    dificultad: clasificacion.dificultad || "Baja",
+                    entorno: clasificacion.entorno || "Rural",
+                    acceso: clasificacion.acceso || "Vehículo simple"
                 };
-
-
 
                 await guardarDestino(payload, fotosDescargadas, ubicacionValida);
 

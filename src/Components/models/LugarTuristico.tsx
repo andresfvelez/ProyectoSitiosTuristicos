@@ -13,17 +13,27 @@ export interface LugarTuristico {
     minimo:number;
     recomendado:number;
     imagenes:string[];
-    rnt?: string;                     // Registro Nacional de Turismo
-    unescoId?: string;                // ID UNESCO si aplica
-    esVerificado?: boolean;           // Sello interno de verificación
-    actividades?: string[];           // Array de actividades (Checklist)
-    servicios?: string[];             // Array de servicios inclusivos
-    dificultad?: 'Baja' | 'Media' | 'Alta';
+    fechaRegistro?: number;
+    //  CAMPOS DE CALIDAD Y ATRIBUTOS
+    rnt?: string;
+    unescoId?: string;
+    tagsEspeciales?: string[]; // Etiquetas dinámicas (actividades, cocina o comodidades)
+    servicios?: string[];     // Wi-Fi, Parqueadero, Baños, etc.
     petFriendly?: boolean;
     accesibleSillaRuedas?: boolean;
+    dificultad?: string;
     contactoWhatsapp?: string;
-    sitioWeb?: string;
     queLlevar?: string;
+
+    // Criterios de filtrado
+    categoriaPrincipal?: string;
+    perfilUsuario?: string[];
+    nivelGasto?: number;
+    clima?: string;
+    popularidad?: boolean;
+    estanciaSugerida?: string;
+    entorno?: string;
+    acceso?: string;
 }
 export interface Opinion {
     lugarId: string;

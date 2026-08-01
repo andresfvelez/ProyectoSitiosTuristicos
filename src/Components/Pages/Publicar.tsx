@@ -34,29 +34,43 @@ import MapaUbicacion from "./Seccions/Localizacionleaf";
 import SelectorImagenes from "./Seccions/SelectorImages";
 import { guardarDestino } from "../../services/lugaresService";
 
-// Listas de Opciones
+// LISTAS DE ETIQUETAS SEGÚN CATEGORÍA
 const OPCIONES_ACTIVIDADES = [
     { label: '🥾 Senderismo', value: 'senderismo' },
     { label: '🦜 Avistamiento de Aves', value: 'avistamiento_aves' },
     { label: '🌊 Deportes Acuáticos', value: 'deportes_acuaticos' },
-    { label: '☕ Catación / Gastronomía', value: 'gastronomia' },
     { label: '📸 Fotografía', value: 'fotografia' },
     { label: '⛺ Camping / Glamping', value: 'camping' },
     { label: '🏛️ Tour Cultural', value: 'cultural' },
 ];
 
+const OPCIONES_RESTAURANTE = [
+    { label: '🇨🇴 Comida Típica / Criolla', value: 'comida_tipica' },
+    { label: '🐟 Pescados y Mariscos', value: 'mariscos' },
+    { label: '🥩 Parrilla / Carnes', value: 'parrilla' },
+    { label: '🥗 Opción Vegetariana', value: 'vegetariana' },
+    { label: '☕ Café / Repostería', value: 'reposteria' },
+];
+
+const OPCIONES_HOTEL = [
+    { label: '🏊 Piscina', value: 'piscina' },
+    { label: '🥐 Desayuno Incluido', value: 'desayuno' },
+    { label: '❄️ Aire Acondicionado', value: 'aire' },
+    { label: '🏔️ Vista Panorámica', value: 'vista' },
+    { label: '🛁 Jacuzzi / Spa', value: 'jacuzzi' },
+    { label: '🏡 Cabaña Privada', value: 'cabana' },
+];
+
 const OPCIONES_SERVICIOS = [
     { label: '📶 Wi-Fi Gratis', value: 'wifi' },
     { label: '🚗 Parqueadero Privado', value: 'parqueadero' },
-    { label: '🍽️ Restaurante', value: 'restaurante_sitio' },
-    { label: '🗣️ Guía Bilingüe', value: 'guia_bilingue' },
+    { label: '🗣️ Guía / Atención Personalizada', value: 'atencion_personalizada' },
     { label: '🚻 Baños Públicos', value: 'banos' },
 ];
 
 const PublicarDestino = () => {
     const [form] = Form.useForm();
 
-    // Estado expandido para la Vista Previa
     const [preview, setPreview] = useState({
         nombre: "Título del Destino",
         descripcion: "Aquí aparecerá la descripción que escribas...",
@@ -65,7 +79,7 @@ const PublicarDestino = () => {
         minimo: 0,
         rnt: "",
         unescoId: "",
-        actividades: [] as string[],
+        tagsEspeciales: [] as string[],
         servicios: [] as string[],
         petFriendly: false,
         accesibleSillaRuedas: false,
@@ -84,7 +98,6 @@ const PublicarDestino = () => {
         setPreview(prev => ({ ...prev, ...allValues }));
     };
 
-    // Generar URLs temporales para el carrusel
     useEffect(() => {
         if (fotosLugar.length === 0) {
             setPreviewUrls([]);
@@ -154,7 +167,7 @@ const PublicarDestino = () => {
                 userLocation
             );
 
-            message.success("¡Destino y fotos guardados correctamente!");
+            message.success("¡Destino guardado correctamente!");
 
             form.resetFields();
             setFotosLugar([]);
@@ -171,17 +184,26 @@ const PublicarDestino = () => {
         switch (cat) {
             case 'hotel':
                 return { label: 'Hotel', icon: <HotelIcon sx={{ fontSize: 16, color: '#ef4444' }} /> };
-            case 'aventura':
-                return { label: 'Aventura', icon: <LandscapeIcon sx={{ fontSize: 16, color: '#10b981' }} /> };
-            default:
+            case 'restaurante':
                 return { label: 'Restaurante', icon: <RestaurantIcon sx={{ fontSize: 16, color: '#f59e0b' }} /> };
+            default:
+                return { label: 'Aventura / Atractivo', icon: <LandscapeIcon sx={{ fontSize: 16, color: '#10b981' }} /> };
         }
     };
 
     const catBadge = getCategoryBadge(preview.categoria);
-
-    // Validación estricta: Solo 'hotel' o 'restaurante' activan WhatsApp
     const esHotelORestaurante = preview.categoria === "hotel" || preview.categoria === "restaurante";
+    const esAventura = preview.categoria === "aventura";
+
+    // Obtener las opciones de etiquetas según la categoría elegida
+    const getOpcionesCategoria = () => {
+        if (preview.categoria === 'hotel') return OPCIONES_HOTEL;
+        if (preview.categoria === 'restaurante') return OPCIONES_RESTAURANTE;
+        return OPCIONES_ACTIVIDADES;
+    };
+
+    const opcionesEspeciales = getOpcionesCategoria();
+
     return (
         <Box className="publicar-container" sx={{ pb: 8 }}>
 
@@ -248,7 +270,7 @@ const PublicarDestino = () => {
                                 form={form}
                                 layout="vertical"
                                 onValuesChange={handleValuesChange}
-                                initialValues={{ categoria: 'restaurante', dificultad: 'Baja' }}
+                                initialValues={{ categoria: 'aventura', dificultad: 'Baja' }}
                             >
                                 <Typography variant="h5" fontWeight="800" sx={{ mb: 3, color: "#0f172a" }}>
                                     Detalles del Lugar
@@ -277,18 +299,18 @@ const PublicarDestino = () => {
                                             type="button"
                                             className={`btn-pill ${preview.categoria === "aventura" ? "active" : ""}`}
                                             onClick={() => {
-                                                form.setFieldsValue({ categoria: "aventura" });
-                                                setPreview(p => ({ ...p, categoria: "aventura" }));
+                                                form.setFieldsValue({ categoria: "aventura", tagsEspeciales: [] });
+                                                setPreview(p => ({ ...p, categoria: "aventura", tagsEspeciales: [] }));
                                             }}
                                         >
-                                            Aventura <LandscapeIcon sx={{ ml: 1, color: "green" }} />
+                                            Aventura / Sitio <LandscapeIcon sx={{ ml: 1, color: "green" }} />
                                         </button>
                                         <button
                                             type="button"
                                             className={`btn-pill ${preview.categoria === "restaurante" ? "active" : ""}`}
                                             onClick={() => {
-                                                form.setFieldsValue({ categoria: "restaurante" });
-                                                setPreview(p => ({ ...p, categoria: "restaurante" }));
+                                                form.setFieldsValue({ categoria: "restaurante", tagsEspeciales: [] });
+                                                setPreview(p => ({ ...p, categoria: "restaurante", tagsEspeciales: [] }));
                                             }}
                                         >
                                             Restaurante <RestaurantIcon sx={{ ml: 1, color: "orange" }} />
@@ -298,12 +320,11 @@ const PublicarDestino = () => {
                                             className={`btn-pill ${preview.categoria === "hotel" ? "active" : ""}`}
                                             onClick={() => {
                                                 form.setFieldsValue({ categoria: "hotel" });
-                                                setPreview(p => ({ ...p, categoria: "hotel" }));
+                                                setPreview(p => ({ ...p, categoria: "hotel", tagsEspeciales: [] }));
                                             }}
                                         >
                                             Hotel <HotelIcon sx={{ ml: 1, color: "red" }} />
                                         </button>
-
                                     </Stack>
                                 </Form.Item>
 
@@ -337,21 +358,23 @@ const PublicarDestino = () => {
                                     </Grid>
                                 </Grid>
 
-                                {/* 🎯 SECCIÓN 2: ACTIVIDADES DISPONIBLES */}
+                                {/* 🎯 SECCIÓN 2: ETIQUETAS DINÁMICAS SEGÚN CATEGORÍA */}
                                 <Divider sx={{ my: 2 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 1.5, color: "#0f172a" }}>
-                                    🎯 Actividades Disponibles
+                                    {preview.categoria === 'hotel' && '🏨 Comodidades del Alojamiento'}
+                                    {preview.categoria === 'restaurante' && '🍽️ Especialidad / Tipo de Cocina'}
+                                    {preview.categoria === 'aventura' && '🎯 Actividades Disponibles'}
                                 </Typography>
-                                <Form.Item name="actividades">
+                                <Form.Item name="tagsEspeciales">
                                     <Checkbox.Group
-                                        options={OPCIONES_ACTIVIDADES}
+                                        options={opcionesEspeciales}
                                         style={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}
                                     />
                                 </Form.Item>
 
-                                {/* 🛠️ SECCIÓN 3: SERVICIOS E INCLUSIVIDAD */}
+                                {/* 🛠️ SECCIÓN 3: SERVICIOS GENERALES E INCLUSIVIDAD */}
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mt: 2, mb: 1.5, color: "#0f172a" }}>
-                                    🛠️ Servicios en el Sitio
+                                    🛠️ Servicios Generales
                                 </Typography>
                                 <Form.Item name="servicios">
                                     <Checkbox.Group
@@ -387,38 +410,44 @@ const PublicarDestino = () => {
                                         </Form.Item>
                                     </Grid>
                                     <Grid item xs={6}>
-                                        <Form.Item name="minimo" label={<strong>Presupuesto Recomendado (Mínimo)</strong>}>
+                                        <Form.Item name="minimo" label={<strong>{esHotelORestaurante ?(preview.categoria === "hotel" ? "Precio Promedio Noche": "Precio Promedio Plato" ): "Presupuesto Sugerido (Mínimo)"}</strong>}>
                                             <InputNumber style={{ width: '100%' }} prefix="$" />
                                         </Form.Item>
                                     </Grid>
                                 </Grid>
 
-                                {/* SECCIÓN 5: DIFICULTAD Y CONTACTO */}
+                                {/* 📞 SECCIÓN 5: ESPECÍFICO SEGÚN TIPO DE LUGAR */}
                                 <Grid container spacing={2}>
-                                    <Grid item xs={12} sm={6}>
-                                        <Form.Item name="dificultad" label={<strong>Nivel de Dificultad</strong>}>
-                                            <Select placeholder="Selecciona el nivel">
-                                                <Select.Option value="Baja">🟢 Bajo (Relax / Apto para todos)</Select.Option>
-                                                <Select.Option value="Media">🟡 Moderado (Requiere caminata)</Select.Option>
-                                                <Select.Option value="Alta">🔴 Exigente (Senderismo avanzado)</Select.Option>
-                                            </Select>
-                                        </Form.Item>
-                                    </Grid>
-
-                                    {/* 🟢 CAMPO WHATSAPP: SOLO VISIBLE SI ES HOTEL O RESTAURANTE */}
-                                    {esHotelORestaurante && (
+                                    {/* Dificultad solo aplica a Aventura/Atractivos */}
+                                    {esAventura && (
                                         <Grid item xs={12} sm={6}>
-                                            <Form.Item name="contactoWhatsapp" label={<strong>WhatsApp de Contacto</strong>}>
-                                                <Input placeholder="Ej: +57 111 112 4455" prefix={<WhatsAppIcon sx={{ fontSize: 18, color: '#22c55e' }} />} />
+                                            <Form.Item name="dificultad" label={<strong>Nivel de Dificultad</strong>}>
+                                                <Select placeholder="Selecciona el nivel">
+                                                    <Select.Option value="Baja">🟢 Bajo (Relax / Apto para todos)</Select.Option>
+                                                    <Select.Option value="Media">🟡 Moderado (Requiere caminata)</Select.Option>
+                                                    <Select.Option value="Alta">🔴 Exigente (Senderismo avanzado)</Select.Option>
+                                                </Select>
                                             </Form.Item>
                                         </Grid>
                                     )}
 
-                                    <Grid item xs={12}>
-                                        <Form.Item name="queLlevar" label={<strong>¿Qué se recomienda llevar?</strong>}>
-                                            <Input placeholder="Ej: Calzado de agarre, repelente de insectos, chaqueta impermeable, hidratación..." />
-                                        </Form.Item>
-                                    </Grid>
+                                    {/* WhatsApp solo para Hotel o Restaurante */}
+                                    {esHotelORestaurante && (
+                                        <Grid item xs={12} sm={12}>
+                                            <Form.Item name="contactoWhatsapp" label={<strong>WhatsApp de Reserva / Contacto</strong>}>
+                                                <Input placeholder="Ej: +57 300 123 4567" prefix={<WhatsAppIcon sx={{ fontSize: 18, color: '#22c55e' }} />} />
+                                            </Form.Item>
+                                        </Grid>
+                                    )}
+
+                                    {/* Qué llevar solo para Aventura/Atractivos */}
+                                    {esAventura && (
+                                        <Grid item xs={12}>
+                                            <Form.Item name="queLlevar" label={<strong>¿Qué se recomienda llevar?</strong>}>
+                                                <Input placeholder="Ej: Calzado de agarre, repelente de insectos, chaqueta impermeable, hidratación..." />
+                                            </Form.Item>
+                                        </Grid>
+                                    )}
                                 </Grid>
 
                                 {userLocation != null &&
@@ -534,13 +563,15 @@ const PublicarDestino = () => {
                                             </Typography>
                                         </Stack>
 
-                                        {/* Nivel de Dificultad Badge */}
-                                        <Chip
-                                            label={`Dificultad: ${preview.dificultad}`}
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{ fontSize: "0.65rem", fontWeight: "700", borderColor: "#cbd5e1" }}
-                                        />
+                                        {/* Solo muestra dificultad si es Aventura */}
+                                        {esAventura && (
+                                            <Chip
+                                                label={`Dificultad: ${preview.dificultad}`}
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{ fontSize: "0.65rem", fontWeight: "700", borderColor: "#cbd5e1" }}
+                                            />
+                                        )}
                                     </Stack>
 
                                     {/* Título */}
@@ -553,19 +584,19 @@ const PublicarDestino = () => {
                                         {preview.descripcion || "Aquí aparecerá la descripción que escribas..."}
                                     </Typography>
 
-                                    {/* ETIQUETAS DE ACTIVIDADES */}
-                                    {preview.actividades && preview.actividades.length > 0 && (
+                                    {/* ETIQUETAS DINÁMICAS EN LA VISTA PREVIA */}
+                                    {preview.tagsEspeciales && preview.tagsEspeciales.length > 0 && (
                                         <Box sx={{ mb: 2 }}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight="700" display="block" sx={{ mb: 0.5 }}>
-                                                ACTIVIDADES:
+                                            <Typography variant="caption" color="text.secondary" fontWeight="700" display="block" sx={{ mb: 0.5, textTransform: "uppercase" }}>
+                                                {preview.categoria === 'hotel' ? 'COMODIDADES:' : preview.categoria === 'restaurante' ? 'ESPECIALIDAD:' : 'ACTIVIDADES:'}
                                             </Typography>
                                             <Stack direction="row" flexWrap="wrap" gap={0.5}>
-                                                {preview.actividades.map((act) => {
-                                                    const itemOp = OPCIONES_ACTIVIDADES.find(o => o.value === act);
+                                                {preview.tagsEspeciales.map((tag) => {
+                                                    const itemOp = opcionesEspeciales.find(o => o.value === tag);
                                                     return (
                                                         <Chip
-                                                            key={act}
-                                                            label={itemOp ? itemOp.label : act}
+                                                            key={tag}
+                                                            label={itemOp ? itemOp.label : tag}
                                                             size="small"
                                                             sx={{ bgcolor: "#f1f5f9", fontSize: "0.7rem", fontWeight: "600", color: "#334155" }}
                                                         />
@@ -599,11 +630,11 @@ const PublicarDestino = () => {
 
                                     <Divider sx={{ my: 2, borderColor: "#f1f5f9" }} />
 
-                                    {/* PRESUPUESTO Y BOTÓN DE WHATSAPP CONDICIONAL */}
+                                    {/* PRESUPUESTO Y WHATSAPP */}
                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Box>
                                             <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: "600", display: "block" }}>
-                                                Presupuesto recomendado
+                                                {esHotelORestaurante ? "Precio estimado" : "Presupuesto recomendado"}
                                             </Typography>
                                             <Typography variant="h6" fontWeight="900" sx={{ color: "#0ea5e9" }}>
                                                 ${Number(preview.minimo || 0).toLocaleString("es-CO")}{" "}
@@ -613,8 +644,8 @@ const PublicarDestino = () => {
                                             </Typography>
                                         </Box>
 
-                                        {/* 🟢 BOTÓN WHATSAPP: SOLO APARECE EN HOTEL O RESTAURANTE SI REGISTRÓ NÚMERO */}
-                                        {esHotelORestaurante && (
+                                        {/* WhatsApp condicional */}
+                                        {esHotelORestaurante && Boolean(preview.contactoWhatsapp) && (
                                             <Chip
                                                 icon={<WhatsAppIcon style={{ color: 'white', fontSize: 16 }} />}
                                                 label="WhatsApp"

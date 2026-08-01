@@ -82,7 +82,7 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
 
     const lugarData = lugarSnap.data();
 
-    // 2. Traer fotos y opiniones de este lugar específico en paralelo
+    // 2. Traer fotos y opiniones en paralelo
     const [snapshotImagenes, snapshotOpiniones] = await Promise.all([
       getDocs(query(collection(db, "imagenes_b64"), where("idVinculado", "==", id))),
       getDocs(query(collection(db, "opiniones_lugares"), where("lugarId", "==", id)))
@@ -98,11 +98,12 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
       puntuacionCalculada = Number((suma / opiniones.length).toFixed(1));
     }
 
+    // Retorna la estructura garantizando la interfaz unificada LugarTuristico
     return {
       id: lugarSnap.id,
-      ...lugarData,
+      ...lugarData, // 👈 Trae automáticamente rnt, tagsEspeciales, petFriendly, etc.
       imagenes,
-      opiniones, // 👈 Ya entra directamente como Opinion[]
+      opiniones,
       puntuacion: puntuacionCalculada
     } as LugarTuristico;
 
@@ -111,8 +112,6 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
     return null;
   }
 };
-
-
 
 
 
@@ -148,13 +147,17 @@ const comprimirImagen = (file: File): Promise<string> => {
   });
 };
 
-export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { lat: number, lng: number }) => {
+export const guardarDestino = async (
+    datos: LugarTuristico,
+    archivos: File[],
+    ubicacion: { lat: number; lng: number }
+): Promise<string> => {
   try {
-    // 1. Estructuramos el objeto del nuevo lugar con todos los datos estándar y nuevos
-    const nuevoLugar: any = {
+    // Estructuramos el objeto basándonos directamente en la interfaz LugarTuristico
+    const nuevoLugar: Omit<LugarTuristico, 'id'> = {
       nombre: datos.nombre || "",
       descripcion: datos.descripcion || "",
-      categoria: datos.categoria || "restaurante",
+      categoria: datos.categoria || "aventura",
       latitud: ubicacion.lat,
       longitud: ubicacion.lng,
       ciudad: datos.ciudad || "",
@@ -166,18 +169,19 @@ export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { 
       fechaRegistro: Date.now(),
       imagenes: [],
 
-      // --- NUEVOS CAMPOS DE CALIDAD Y VERIFICACIÓN ---
+      // CAMPOS DE CALIDAD Y ATRIBUTOS
       rnt: datos.rnt || "",
       unescoId: datos.unescoId || "",
-      actividades: datos.actividades || [], // Array ['senderismo', 'camping', ...]
-      servicios: datos.servicios || [],     // Array ['wifi', 'parqueadero', ...]
+      // Mantiene el arreglo de etiquetas dinámicas (actividades, comodidades o cocina)
+      tagsEspeciales: datos.tagsEspeciales || [],
+      servicios: datos.servicios || [],
       petFriendly: Boolean(datos.petFriendly),
       accesibleSillaRuedas: Boolean(datos.accesibleSillaRuedas),
       dificultad: datos.dificultad || "Baja",
       contactoWhatsapp: datos.contactoWhatsapp || "",
       queLlevar: datos.queLlevar || "",
 
-      // --- CRITERIOS CLAVE PARA FILTRADO DE IA Y BÚSQUEDAS ---
+      // CRITERIOS DE FILTRADO Y BÚSQUEDAS
       categoriaPrincipal: datos.categoria || "Cultura",
       perfilUsuario: datos.perfilUsuario || ["Pareja", "Amigos"],
       nivelGasto: Number(datos.nivelGasto) || 2,
@@ -188,7 +192,7 @@ export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { 
       acceso: datos.acceso || "Vehículo simple"
     };
 
-    // Guardar en la colección de lugares
+    // 1. Guardar documento principal en Firestore
     const destinoDoc = await addDoc(collection(db, "lugares_turisticos_scrapped"), nuevoLugar);
     const idDestino = destinoDoc.id;
 
@@ -196,7 +200,7 @@ export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { 
     const promesasImagenes = archivos
         .filter(f => f !== null)
         .map(async (file) => {
-          const b64Comprimido = await comprimirImagen(file); // Tu helper existente
+          const b64Comprimido = await comprimirImagen(file); // Tu función helper existente
           return addDoc(collection(db, "imagenes_b64"), {
             idVinculado: idDestino,
             esLugar: true,
@@ -213,4 +217,3 @@ export const guardarDestino = async (datos: any, archivos: File[], ubicacion: { 
     throw error;
   }
 };
-
