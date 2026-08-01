@@ -4,7 +4,7 @@ import { AutoComplete, Input, Tooltip } from 'antd';
 import { SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import { imgPerfil } from "../Layouts/Images/imagenPerfilPrueba";
 import "../Components/Pages/styles/Header.css";
-import {useAuth} from "../providers/AuthProvider";
+import {useAuth} from "../auth/AuthProvider";
 import User from './Images/user.png';
 import { signOut } from 'firebase/auth';
 import {db,auth} from "../firebase/firebaseConfig";
@@ -14,6 +14,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
 import Logout from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import {EstadoConexion} from "./EstadoConexion";
 interface HeaderProps {
     sections: ReadonlyArray<{ title: string; url: string; }>;
     availablePlaces: any[]; // Los lugares que traes de Firebase
@@ -39,24 +40,30 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
     // --- AQUÍ SE HACE LA BÚSQUEDA ---
     const onSearch = (value: string) => {
         setSearchText(value);
+
         if (!value) {
             setOptions([]);
             return;
         }
 
-        // 1. Filtrar Sugerencias IA
-        const tagsIA = SUGERENCIAS_IA
-            .filter(item => item.value.toLowerCase().includes(value.toLowerCase()))
-            .map(item => ({ value: item.value, tipo: 'tag' }));
+        const queryLower = value.toLowerCase();
 
-        // 2. Filtrar Lugares de la BD (Búsqueda por nombre)
-        const lugaresBD = availablePlaces
-            .filter(lugar => lugar.nombre.toLowerCase().includes(value.toLowerCase()))
+        // 1. Filtrar Sugerencias IA (Protegido si un item no tiene 'value')
+        const tagsIA = (SUGERENCIAS_IA || [])
+            .filter(item => item?.value && item.value.toLowerCase().includes(queryLower))
+            .map(item => ({
+                value: item.value,
+                tipo: 'tag'
+            }));
+
+        // 2. Filtrar Lugares de la BD (Protegido si un lugar no tiene 'nombre')
+        const lugaresBD = (availablePlaces || [])
+            .filter(lugar => lugar?.nombre && lugar.nombre.toLowerCase().includes(queryLower))
             .map(lugar => ({
                 value: lugar.nombre,
                 id: lugar.id,
                 tipo: 'lugar',
-                data:lugar
+                data: lugar
             }));
 
         // Combinamos ambos resultados
@@ -97,17 +104,17 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
 
     const handleSelect = (value: string, option: any) => {
         if (option.tipo === 'lugar') {
-            // Si es un lugar, vamos a su página de detalle por ID
-            localStorage.setItem("seleccionado", JSON.stringify(option.data));
-                localStorage.setItem("origen", "lugar");
-            if (window.location.pathname === "/pagina2") {
-                // Si ya estamos ahí, forzamos un reload para que el componente vuelva a leer el localStorage
-                window.location.reload();
-            } else {
-                // Si estamos en otra parte, navegamos normalmente
-                navigate("/pagina2");
+            // Obtenemos el ID del lugar de forma segura (soporta option.id u option.data.id)
+            const lugarId = option.id || option.data?.id;
+
+            if (!lugarId) {
+                console.error("El lugar seleccionado no contiene un ID válido:", option);
+                return;
             }
-            //navigate(`/pagina2?id=${option.id}`);
+
+            // Navegamos dinámicamente a la ruta con el ID.
+            // React Router refrescará automáticamente los datos sin recargar el navegador.
+            navigate(`/pagina2/${lugarId}`);
         } else {
             // Si es una etiqueta IA, vamos a la página de destinos con el filtro
             navigate(`/Destinos?filter=${encodeURIComponent(value)}`);
@@ -136,7 +143,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </ul>
                     </div>
                 </div>
-
+                <EstadoConexion />
                 <div className="d-flex align-items-center gap-3">
                     <div className="search-wrapper">
                         <AutoComplete
@@ -227,6 +234,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     </Menu>
                 </div>
             </div>
+
         </nav>
     );
 }

@@ -22,9 +22,13 @@ import {ApiService} from '../../services/ApiServices';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
-import {obtenerImagenesPorDestino, obtenerLugares} from "../../services/lugaresService";
+import {
+    obtenerImagenesPorDestino,
+    obtenerLugares
+} from "../../services/lugaresService";
 import Scrapper from "./Scrapper";
 import {ejecutarConsultaIA} from "../../services/IA/IaExecuter";
+import ScrapperMejorado from './ScrapperMejorado';
 
 
 const InitialPage = () => {
@@ -73,7 +77,7 @@ const InitialPage = () => {
         const cargarTodo = async () => {
             // 1. Obtener la lista base de lugares
             const listaLugares = await obtenerLugares();
-
+            console.log("dataa",listaLugares);
             const lugaresConFotos = await Promise.all(
                 listaLugares.map(async (lugar) => {
                     const fotos = await obtenerImagenesPorDestino(lugar.id!);
@@ -196,7 +200,7 @@ const InitialPage = () => {
                         <hr />
 
 
-                        <Scrapper />
+                        <ScrapperMejorado />
 
                     </div>
 

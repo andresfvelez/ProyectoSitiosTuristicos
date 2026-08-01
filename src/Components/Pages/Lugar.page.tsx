@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useRef, useState} from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 // Material UI Components
 import {
@@ -12,9 +12,13 @@ import {
   Avatar,
   Divider,
   Stack,
-  Chip
+  Chip,
+  CircularProgress
 } from "@mui/material";
 
+import {
+  obtenerLugarPorId
+} from "../../services/lugaresService";
 // Icons
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
@@ -41,6 +45,7 @@ import {LugarTuristico, Opinion} from "../models/LugarTuristico";
 import SeccionComentarios from "./Seccions/Comments";
 
 const Pagina2 = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm<any>();
 
@@ -48,12 +53,13 @@ const Pagina2 = () => {
   const [activeTab, setActiveTab] = useState<string>("");
   const [renderizar, setrenderizar] = useState<boolean>(false);
   const [showlocalizacion, setshowlocalizacion] = useState<boolean>(false);
+  const [cargando, setCargando] = useState<boolean>(true);
   const [restaurant, setrestaurant] = useState<string>("white");
   const [hotel, sethotel] = useState<string>("white");
   const [rentaauto, setrentaauto] = useState<string>("white");
-  const [info, setinfo] = useState<LugarTuristico>();
+  const [info, setinfo] = useState<LugarTuristico | null>(null);
   const [cardseleccionado, setcardseleccionado] = useState<any[]>([]);
-  const [stars, setstars] = useState<any[]>([]);
+
   const [coments, setcoments] = useState<any[]>([]);
   const [enviar, setenviar] = useState<boolean>(true);
   const [starsuser, setstarsuser] = useState<boolean[]>([false, false, false, false, false]);
@@ -68,13 +74,15 @@ const Pagina2 = () => {
     { pais: 'Colombia', lugar: 'Dato', image: BannerImg, recomendado: 'US $ 100,0', minimo: 'US $ 60,00', descripcion: 'Café y naturaleza', puntuacion: '4.0', coordenadas: {}, zoom: 8 },
   ];
 
-  const getListas = useCallback(async () => {
-    let destino: LugarTuristico = JSON.parse(localStorage.getItem("seleccionado") || "{}");
+
+
+
+
+// Cálculo de estrellas dinámico basado en la puntuación del lugar
+  const stars = useMemo(() => {
     const starArr = Array(5).fill("0");
-
-    if (destino.puntuacion !== undefined && destino.puntuacion !== null) {
-      const p = Number(destino.puntuacion);
-
+    if (info?.puntuacion !== undefined && info?.puntuacion !== null) {
+      const p = Number(info.puntuacion);
       if (!isNaN(p)) {
         const fullStars = Math.floor(p);
         const hasHalfStar = p - fullStars >= 0.5;
@@ -82,30 +90,40 @@ const Pagina2 = () => {
         for (let i = 0; i < fullStars && i < 5; i++) {
           starArr[i] = "1";
         }
-
         if (hasHalfStar && fullStars < 5) {
           starArr[fullStars] = "0.5";
         }
       }
     }
-    setcoments([
-      { usuario: "Andrés G.", puntuacion: "4.0", comentario: "Increíble lugar, la vista es insuperable.", imagenes: [imgPerfil] },
-      { usuario: "Mariana L.", puntuacion: "5.0", comentario: "El mejor viaje de mi vida, muy recomendado.", imagenes: [imgPerfil] }
-    ]);
+    return starArr;
+  }, [info?.puntuacion]);
+
+
+  const listaOpiniones: Opinion[] = useMemo(() => {
+    return info?.opiniones && Array.isArray(info.opiniones) ? info.opiniones : [];
+  }, [info?.opiniones]);
+
+
+// Carga de datos mediante consulta a Firebase por ID
+  const cargarLugar = useCallback(async () => {
+    if (!id) {
+      console.error("No se proporcionó un ID en la URL");
+      setCargando(false);
+      return;
+    }
+
+    setCargando(true);
+    // Hacemos la consulta directa a Firebase por ID
+    const destino = await obtenerLugarPorId(id);
     console.log(destino)
     setinfo(destino);
-    setstars(starArr);
-    setrenderizar(true);
-  }, []);
+    setCargando(false);
+  }, [id]);
 
   useEffect(() => {
-    getListas();
-  }, [getListas]);
+    cargarLugar();
+  }, [cargarLugar]);
 
-  const habilitarboton = () => {
-    const comentario = form.getFieldValue("comentario");
-    setenviar(!(comentario && comentario.length > 0));
-  };
 
   const handleFilter = (tipo: string) => {
     setActiveTab(tipo);
@@ -140,21 +158,29 @@ const Pagina2 = () => {
       });
     }
   };
-  const listaOpiniones: Opinion[] = React.useMemo(() => {
-    try {
-      // Si info.opiniones existe y es un string, lo parseamos
-      return typeof info?.opiniones === 'string'
-          ? JSON.parse(info.opiniones)
-          : (info?.opiniones || []);
-    } catch (e) {
-      console.error("Error al parsear opiniones", e);
-      return [];
-    }
-  }, [info?.opiniones]);
+
+
+
+  // Si está cargando los datos de Firebase, muestra un spinner centrado
+  if (cargando) {
+    return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <CircularProgress size={60} sx={{ color: "#4dbce9" }} />
+        </Box>
+    );
+  }
+
+  // Si terminó de cargar pero no encontró el lugar
+  if (!info) {
+    return (
+        <Box sx={{ p: 5, textAlign: 'center' }}>
+          <Typography variant="h5">El lugar solicitado no existe.</Typography>
+        </Box>
+    );
+  }
 
   return (
       <>
-        {renderizar && (
             <Box sx={{ bgcolor: "#fdfdfd", minHeight: "100vh" }}>
 
               {/* BANNER PRINCIPAL */}
@@ -195,7 +221,7 @@ const Pagina2 = () => {
                         ({listaOpiniones.length} Opiniones)
                       </Typography>
                       <Box sx={{ color: "#4dbce9" }}>
-                        {stars.map((s, i) => (
+                        {stars.map((s: string, i: number) => (
                             s === "1" ? <StarIcon key={i} /> : s === "0.5" ? <StarHalfIcon key={i} /> : <StarBorderIcon key={i} />
                         ))}
                       </Box>
@@ -300,7 +326,7 @@ const Pagina2 = () => {
                 />
               </Box>
             </Box>
-        )}
+
       </>
   );
 };

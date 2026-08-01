@@ -1,20 +1,60 @@
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase/firebaseConfig';
-import { LugarTuristico } from '../Components/models/LugarTuristico';
+import {collection, getDocs, addDoc, query, where, doc, getDoc} from 'firebase/firestore';
+import { db } from '../firebase/firebaseConfig';
+import {LugarTuristico, Opinion} from '../Components/models/LugarTuristico';
 
 
 export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
-  const snapshot = await getDocs(collection(db, 'lugares_turisticos_scrapped'));
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as LugarTuristico[];
-};
+  console.log("Obteniendo lugares y opiniones...");
 
+  try {
+    // 1. Peticiones simultáneas a Firestore
+    const [snapshotLugares, snapshotOpiniones] = await Promise.all([
+      getDocs(collection(db, 'lugares_turisticos_scrapped')),
+      getDocs(collection(db, 'opiniones_lugares'))
+    ]);
+
+    // 2. Mapeamos las opiniones por el id del lugar para asociarlas rápido
+    const opinionesPorLugar: Record<string, Opinion[]> = {};
+
+    snapshotOpiniones.docs.forEach(doc => {
+      const data = doc.data() as Opinion;
+      if (!opinionesPorLugar[data.lugarId]) {
+        opinionesPorLugar[data.lugarId] = [];
+      }
+      opinionesPorLugar[data.lugarId].push(data);
+    });
+
+    // 3. Mapeamos los lugares con su array de opiniones y puntuación calculada
+    return snapshotLugares.docs.map(doc => {
+      const data = doc.data();
+      const lugarId = doc.id;
+
+      const opiniones = opinionesPorLugar[lugarId] || [];
+
+      // Cálculo del promedio dinámico
+      let puntuacionCalculada = data.puntuacion || 0;
+      if (opiniones.length > 0) {
+        const suma = opiniones.reduce((acc, op) => acc + (op.puntuacion || 0), 0);
+        puntuacionCalculada = Number((suma / opiniones.length).toFixed(1));
+      }
+
+      return {
+        id: lugarId,
+        ...data,
+        opiniones: opiniones,             // 👈 Array de objetos Opinion[]
+        puntuacion: puntuacionCalculada   // 👈 Promedio actualizado
+      } as LugarTuristico;
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo lugares:", error);
+    return [];
+  }
+};
 
 export const obtenerImagenesPorDestino = async (idDestino: string): Promise<string[]> => {
   try {
+    console.log("obteniendo imagenes");
     const q = query(
         collection(db, "imagenes_b64"),
         where("idVinculado", "==", idDestino)
@@ -27,6 +67,54 @@ export const obtenerImagenesPorDestino = async (idDestino: string): Promise<stri
     return [];
   }
 };
+
+
+export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | null> => {
+  try {
+    // 1. Obtener el documento del lugar
+    const lugarRef = doc(db, 'lugares_turisticos_scrapped', id);
+    const lugarSnap = await getDoc(lugarRef);
+
+    if (!lugarSnap.exists()) {
+      console.warn("No se encontró el lugar con ID:", id);
+      return null;
+    }
+
+    const lugarData = lugarSnap.data();
+
+    // 2. Traer fotos y opiniones de este lugar específico en paralelo
+    const [snapshotImagenes, snapshotOpiniones] = await Promise.all([
+      getDocs(query(collection(db, "imagenes_b64"), where("idVinculado", "==", id))),
+      getDocs(query(collection(db, "opiniones_lugares"), where("lugarId", "==", id)))
+    ]);
+
+    const imagenes = snapshotImagenes.docs.map(doc => doc.data().base64 as string);
+    const opiniones = snapshotOpiniones.docs.map(doc => doc.data() as Opinion);
+
+    // 3. Calcular la puntuación promedio dinámicamente
+    let puntuacionCalculada = lugarData.puntuacion || 0;
+    if (opiniones.length > 0) {
+      const suma = opiniones.reduce((acc, op) => acc + (op.puntuacion || 0), 0);
+      puntuacionCalculada = Number((suma / opiniones.length).toFixed(1));
+    }
+
+    return {
+      id: lugarSnap.id,
+      ...lugarData,
+      imagenes,
+      opiniones, // 👈 Ya entra directamente como Opinion[]
+      puntuacion: puntuacionCalculada
+    } as LugarTuristico;
+
+  } catch (error) {
+    console.error("Error al obtener detalle del lugar:", error);
+    return null;
+  }
+};
+
+
+
+
 
 const comprimirImagen = (file: File): Promise<string> => {
   return new Promise((resolve) => {

@@ -1,11 +1,12 @@
 import { buildAIPayload } from './ia-payload.builder';
 import { mapFirestorePlaceToAI } from './mapper';
 import { UserContext, TouristPlace } from '../../Components/models/IaPayload';
-import {buildAIPrompt} from "./Ia-prompt";
+
 import {GEMINI_API_KEY} from "../../env";
 import {doc, getDoc} from "firebase/firestore";
 import {db} from "../../firebase/firebaseConfig";
 import CryptoJS from "crypto-js";
+import {buildAIPromptRTCF} from "./ia-prompt-rtccf-meth";
 
 const obtenerLlaveReal = async () => {
     try {
@@ -89,7 +90,7 @@ export async function getAIRecommendations(
         };
     }
 
-    const prompt = buildAIPrompt(payload);
+    const prompt = buildAIPromptRTCF(payload);
 
     try {
         const rawKey = await obtenerLlaveReal();

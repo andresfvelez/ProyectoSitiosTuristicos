@@ -19,12 +19,17 @@ export default function FeaturedPost(props: FeaturedPostProps) {
     const [fotoActual, setFotoActual] = useState(0);
     // Función para manejar la navegación desde el modal
     const handleNavigation = () => {
-        localStorage.setItem("seleccionado", JSON.stringify(post));
+        localStorage.setItem("seleccionado", JSON.stringify(post))
+        if (!post?.id) {
+            console.error("El objeto post no tiene un ID válido:", post);
+            return;
+        }
         if (ventana === "lugar") {
             localStorage.setItem("origen", "lugar");
             navigate("/Mapa");
         } else {
-            navigate("/pagina2");
+            // 👇 Redirigimos pasando el ID directamente en la URL
+            navigate(`/pagina2/${post.id}`);
         }
     };
     const imagenAleatoriaFija = useMemo(() => {
