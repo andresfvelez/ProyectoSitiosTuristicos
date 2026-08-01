@@ -327,7 +327,7 @@ const Scrapper = () => {
                     lng: parseFloat(lugar.longitude) || -74.29
                 };
 
-                await guardarDestino(payload, fotosDescargadas, ubicacion);
+               // await guardarDestino(payload, fotosDescargadas, ubicacion);
 
 
 
