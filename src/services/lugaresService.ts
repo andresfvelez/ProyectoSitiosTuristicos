@@ -1,4 +1,4 @@
-import {collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, deleteDoc} from 'firebase/firestore';
+import {collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, deleteDoc, setDoc} from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import {LugarTuristico, Opinion} from '../Components/models/LugarTuristico';
 
@@ -7,13 +7,13 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
   console.log("Obteniendo lugares y opiniones...");
 
   try {
-    // 1. Peticiones simultáneas a Firestore
+    // PeticionesFirestore
     const [snapshotLugares, snapshotOpiniones] = await Promise.all([
       getDocs(collection(db, 'lugares_turisticos_scrapped')),
       getDocs(collection(db, 'opiniones_lugares'))
     ]);
 
-    // 2. Mapeamos las opiniones por el id del lugar para asociarlas rápido
+    // Mapeo de  las opiniones por el id del lugar para asociarlas rápido
     const opinionesPorLugar: Record<string, Opinion[]> = {};
 
     snapshotOpiniones.docs.forEach(doc => {
@@ -24,7 +24,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
       opinionesPorLugar[data.lugarId].push(data);
     });
 
-    // 3. Mapeamos los lugares con su array de opiniones y puntuación calculada
+
     const todosLosLugares = snapshotLugares.docs.map(doc => {
       const data = doc.data();
       const lugarId = doc.id;
@@ -240,7 +240,47 @@ export const guardarDestino = async (
   }
 };
 
-// 2. OBTENER LUGARES PENDIENTES DE CONFIRMACIÓN (Solo Admin)
+export const agregarOpinionLugar = async (
+    lugarId: string,
+    nuevaOpinion: Opinion
+): Promise<boolean> => {
+  try {
+    // 1. Guardar la nueva opinión en la colección separada 'opiniones_lugares'
+    await addDoc(collection(db, "opiniones_lugares"), {
+      ...nuevaOpinion,
+      lugarId: lugarId, // Blindamos que siempre tenga la llave foránea
+      createdAt: Date.now() // Útil por si a futuro quieres ordenar por más recientes
+    });
+
+    // 2. Traer TODAS las opiniones de este lugar para calcular el promedio real total
+    const q = query(collection(db, "opiniones_lugares"), where("lugarId", "==", lugarId));
+    const snapshotOpiniones = await getDocs(q);
+
+    const todasLasOpiniones: Opinion[] = [];
+    snapshotOpiniones.forEach((docSnap) => {
+      todasLasOpiniones.push(docSnap.data() as Opinion);
+    });
+
+    // 3. Recalcular el promedio exacto
+    let nuevaPuntuacionMedia = 0;
+    if (todasLasOpiniones.length > 0) {
+      const suma = todasLasOpiniones.reduce((acc, op) => acc + Number(op.puntuacion || 0), 0);
+      nuevaPuntuacionMedia = Number((suma / todasLasOpiniones.length).toFixed(1));
+    }
+
+    // 4. Actualizar SOLAMENTE la puntuación en el documento principal del lugar
+    const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
+    await updateDoc(lugarRef, {
+      puntuacion: nuevaPuntuacionMedia
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error guardando la opinión en BD:", error);
+    return false;
+  }
+};
+
 export const obtenerDestinosPendientes = async (): Promise<LugarTuristico[]> => {
   try {
     const q = query(
@@ -259,19 +299,19 @@ export const obtenerDestinosPendientes = async (): Promise<LugarTuristico[]> => 
   }
 };
 
-// 3. APROBAR/CONFIRMAR DESTINO (Solo Admin)
+// aprobar publicacion
 export const confirmarDestino = async (id: string): Promise<void> => {
   const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
   await updateDoc(lugarRef, { confirmado: true });
 };
 
-// 4. RECHAZAR / ELIMINAR DESTINO (Solo Admin)
+//rechazar publicacion
 export const rechazarDestino = async (id: string): Promise<void> => {
   const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
   await deleteDoc(lugarRef);
 };
 
-// 5. ACTUALIZAR DESTINO (Edición por Creador o Admin)
+// Editar publicacion (Edición por Creador o Admin)
 export const actualizarDestino = async (
     id: string,
     datosActualizados: Partial<LugarTuristico>
@@ -281,4 +321,39 @@ export const actualizarDestino = async (
     ...datosActualizados,
     fechaActualizacion: Date.now()
   });
+};
+//Eliminar publicacion(usuario creador o admin)
+export const eliminarDestino = async (destinoId: string, usuarioId: string): Promise<boolean> => {
+  try {
+    if (!destinoId) return false;
+
+    //Consulta el documento original antes de eliminarlo
+    const docRef = doc(db, "lugares_turisticos_scrapped", destinoId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      console.error("El destino no existe o ya fue eliminado.");
+      return false;
+    }
+
+    const datosOriginales = docSnap.data();
+
+    // Guardar copia de respaldo en 'destinos_eliminados_auditoria' para temas de auditoria
+    const auditRef = doc(db, "destinos_eliminados_auditoria", destinoId);
+    await setDoc(auditRef, {
+      ...datosOriginales,
+      idOriginal: destinoId,
+      fechaEliminacion: Date.now(),
+      eliminadoPor: usuarioId
+    });
+
+    //Borrar únicamente el registro de la tabla principal
+    await deleteDoc(docRef);
+
+    console.log(`✅ Destino ${destinoId} movido a auditoría y borrado del catálogo público.`);
+    return true;
+  } catch (error) {
+    console.error("Error al eliminar el destino:", error);
+    return false;
+  }
 };

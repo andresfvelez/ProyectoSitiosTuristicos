@@ -13,16 +13,22 @@ import {
     Paper,
     Button as MuiButton
 } from "@mui/material";
-import { Tabs, Input, Tag, Spin, Empty } from "antd";
+import { Tabs, Input, Tag, Spin, Empty, Popconfirm, message } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import EditIcon from "@mui/icons-material/Edit";
 import StarIcon from "@mui/icons-material/Star";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { LugarTuristico } from "../models/LugarTuristico";
-import { obtenerLugares, obtenerLugaresPorUsuario, obtenerImagenesPorDestino } from "../../services/lugaresService";
+import {
+    obtenerLugares,
+    obtenerLugaresPorUsuario,
+    obtenerImagenesPorDestino,
+    eliminarDestino
+} from "../../services/lugaresService";
 import BannerImg from "../../Layouts/Images/Banner.png";
 
 // Helper para interpretar formato de imagen
@@ -34,13 +40,31 @@ const getImagenSrc = (src?: string | null) => {
     return `data:image/png;base64,${src}`;
 };
 
-// 🎴 COMPONENTE INDIVIDUAL DE TARJETA CON CARGA INDEPENDIENTE DE PORTADA
-const TarjetaDestino: React.FC<{ lugar: LugarTuristico; tabActiva: string; usuario: any }> = ({ lugar, tabActiva, usuario }) => {
+// 🎴 INTERFAZ DE PROPS PARA LA TARJETA
+interface TarjetaDestinoProps {
+    lugar: LugarTuristico;
+    tabActiva: string;
+    usuario: any;
+    rol:any;
+    onBorradoExitoso: () => void; // 👈 Función para recargar la lista
+}
+
+// 🎴 COMPONENTE INDIVIDUAL DE TARJETA
+const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
+                                                           lugar,
+                                                           tabActiva,
+                                                           usuario,
+                                                           rol,
+                                                           onBorradoExitoso
+                                                       }) => {
     const navigate = useNavigate();
     const [fotoPortada, setFotoPortada] = useState<string | null>(
         lugar.imagenes && lugar.imagenes.length > 0 ? lugar.imagenes[0] : null
     );
 
+    const esCreadorEnMisDestinos = tabActiva === "2" && lugar.creadorId === usuario?.uid;
+    const esAdmin = rol === 'administrador';
+    const puedeGestionar = esCreadorEnMisDestinos || esAdmin;
     useEffect(() => {
         // Si el objeto no trae fotos embebidas, traemos la primera foto desde la colección imagenes_b64
         if (!fotoPortada && lugar.id) {
@@ -51,6 +75,19 @@ const TarjetaDestino: React.FC<{ lugar: LugarTuristico; tabActiva: string; usuar
             });
         }
     }, [lugar.id, fotoPortada]);
+
+    // ACCIÓN DE BORRADO
+    const handleConfirmarBorrado = async () => {
+        if (!lugar.id || !usuario?.uid) return;
+
+        const exito = await eliminarDestino(lugar.id, usuario.uid);
+        if (exito) {
+            message.success("Destino eliminado y archivado correctamente.");
+            onBorradoExitoso(); //  Dispara la recarga inmediata de la vista
+        } else {
+            message.error("No se pudo eliminar el destino.");
+        }
+    };
 
     return (
         <Grid item xs={12} sm={6} md={4} lg={3}>
@@ -121,18 +158,54 @@ const TarjetaDestino: React.FC<{ lugar: LugarTuristico; tabActiva: string; usuar
                     </Stack>
                 </CardContent>
 
-                {/* ACCIONES */}
+                {/* ACCIONES DE LA TARJETA */}
                 <CardActions sx={{ p: 2, pt: 0 }}>
-                    {(tabActiva === "2" || lugar.creadorId === usuario?.uid) ? (
-                        <MuiButton
-                            fullWidth
-                            variant="contained"
-                            startIcon={<EditIcon />}
-                            onClick={() => navigate(`/editar-destino/${lugar.id}`)}
-                            sx={{ bgcolor: "#0284c7", borderRadius: "10px", textTransform: "none", fontWeight: "bold" }}
-                        >
-                            Editar Destino
-                        </MuiButton>
+                    {puedeGestionar ? (
+                        <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                            {/* Botón Editar */}
+                            <MuiButton
+                                variant="outlined"
+                                onClick={() => navigate(`/pagina2/${lugar.id}`)}
+                                sx={{
+                                    borderRadius: "10px",
+                                    textTransform: "none",
+                                    fontWeight: "bold",
+                                    px: 1.5,
+                                    minWidth: "auto",
+                                    color: "#475569",
+                                    borderColor: "#cbd5e1"
+                                }}
+                            >
+                                Ver
+                            </MuiButton>
+                            <MuiButton
+                                fullWidth
+                                variant="contained"
+                                startIcon={<EditIcon />}
+                                onClick={() => navigate(`/editar-destino/${lugar.id}`)}
+                                sx={{ bgcolor: "#0284c7", borderRadius: "10px", textTransform: "none", fontWeight: "bold" }}
+                            >
+                                Editar
+                            </MuiButton>
+
+                            {/* 🗑️ Botón Borrar */}
+                            <Popconfirm
+                                title="¿Eliminar destino?"
+                                description="Se moverá a auditoría y ya no será visible."
+                                onConfirm={handleConfirmarBorrado}
+                                okText="Sí, eliminar"
+                                cancelText="Cancelar"
+                                okButtonProps={{ danger: true }}
+                            >
+                                <MuiButton
+                                    variant="outlined"
+                                    color="error"
+                                    sx={{ borderRadius: "10px", minWidth: "45px", px: 1 }}
+                                >
+                                    <DeleteIcon fontSize="small" />
+                                </MuiButton>
+                            </Popconfirm>
+                        </Stack>
                     ) : (
                         <MuiButton
                             fullWidth
@@ -151,7 +224,7 @@ const TarjetaDestino: React.FC<{ lugar: LugarTuristico; tabActiva: string; usuar
 };
 
 export default function DestinosPage() {
-    const { usuario } = useAuth();
+    const { usuario,rol } = useAuth();
 
     const [tabActiva, setTabActiva] = useState<string>("1");
     const [busqueda, setBusqueda] = useState<string>("");
@@ -160,20 +233,21 @@ export default function DestinosPage() {
     const [todosLosLugares, setTodosLosLugares] = useState<LugarTuristico[]>([]);
     const [misLugares, setMisLugares] = useState<LugarTuristico[]>([]);
 
+    // 🔄 Cargar / Refrescar datos
+    const cargarData = async () => {
+        setCargando(true);
+        const publicos = await obtenerLugares();
+        setTodosLosLugares(publicos);
+
+        if (usuario?.uid) {
+            const propios = await obtenerLugaresPorUsuario(usuario.uid);
+            setMisLugares(propios);
+        }
+
+        setCargando(false);
+    };
+
     useEffect(() => {
-        const cargarData = async () => {
-            setCargando(true);
-            const publicos = await obtenerLugares();
-            setTodosLosLugares(publicos);
-
-            if (usuario?.uid) {
-                const propios = await obtenerLugaresPorUsuario(usuario.uid);
-                setMisLugares(propios);
-            }
-
-            setCargando(false);
-        };
-
         cargarData();
     }, [usuario]);
 
@@ -221,11 +295,10 @@ export default function DestinosPage() {
                         key: "1",
                         label: `🌏 Destinos Turísticos (${todosLosLugares.length})`,
                     },
-                    {
+                    ...(usuario ? [{
                         key: "2",
                         label: `👤 Mis Destinos Publicados (${misLugares.length})`,
-                        disabled: !usuario
-                    }
+                    }] : [])
                 ]}
             />
 
@@ -252,6 +325,8 @@ export default function DestinosPage() {
                                 lugar={lugar}
                                 tabActiva={tabActiva}
                                 usuario={usuario}
+                                rol={rol}
+                                onBorradoExitoso={cargarData}
                             />
                         ))}
                     </Grid>

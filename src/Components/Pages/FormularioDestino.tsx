@@ -25,6 +25,8 @@ import PetsIcon from '@mui/icons-material/Pets';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useNavigate } from 'react-router-dom';
 // Ant Design Components
 import { Button, Form, Input, InputNumber, Checkbox, Switch, Select, Tooltip, message, Popconfirm } from "antd";
@@ -37,40 +39,15 @@ import SelectorImagenes from "./Seccions/SelectorImages";
 // 👈 Importamos obtenerImagenesPorDestino
 import { guardarDestino, actualizarDestino, confirmarDestino, rechazarDestino, obtenerImagenesPorDestino } from "../../services/lugaresService";
 import { LugarTuristico } from "../models/LugarTuristico";
+import {buscarPosiblesDuplicados} from "../../services/ValidacionLugar";
+import {
+    OPCIONES_ACTIVIDADES,
+    OPCIONES_HOTEL,
+    OPCIONES_RESTAURANTE,
+    OPCIONES_SERVICIOS
+} from "../models/OpcionesDestinos";
 
-// LISTAS DE ETIQUETAS SEGÚN CATEGORÍA
-const OPCIONES_ACTIVIDADES = [
-    { label: '🥾 Senderismo', value: 'senderismo' },
-    { label: '🦜 Avistamiento de Aves', value: 'avistamiento_aves' },
-    { label: '🌊 Deportes Acuáticos', value: 'deportes_acuaticos' },
-    { label: '📸 Fotografía', value: 'fotografia' },
-    { label: '⛺ Camping / Glamping', value: 'camping' },
-    { label: '🏛️ Tour Cultural', value: 'cultural' },
-];
 
-const OPCIONES_RESTAURANTE = [
-    { label: 'Comida Típica / Criolla', value: 'comida_tipica' },
-    { label: '🐟 Pescados y Mariscos', value: 'mariscos' },
-    { label: '🥩 Parrilla / Carnes', value: 'parrilla' },
-    { label: '🥗 Opción Vegetariana', value: 'vegetariana' },
-    { label: '☕ Café / Repostería', value: 'reposteria' },
-];
-
-const OPCIONES_HOTEL = [
-    { label: '🏊 Piscina', value: 'piscina' },
-    { label: '🥐 Desayuno Incluido', value: 'desayuno' },
-    { label: '❄️ Aire Acondicionado', value: 'aire' },
-    { label: '🏔️ Vista Panorámica', value: 'vista' },
-    { label: '🛁 Jacuzzi / Spa', value: 'jacuzzi' },
-    { label: '🏡 Cabaña Privada', value: 'cabana' },
-];
-
-const OPCIONES_SERVICIOS = [
-    { label: '📶 Wi-Fi Gratis', value: 'wifi' },
-    { label: '🚗 Parqueadero Privado', value: 'parqueadero' },
-    { label: '🗣️ Guía / Atención Personalizada', value: 'atencion_personalizada' },
-    { label: '🚻 Baños Públicos', value: 'banos' },
-];
 
 interface FormularioDestinoProps {
     modo: 'crear' | 'editar' | 'aprobar';
@@ -79,9 +56,9 @@ interface FormularioDestinoProps {
     onExito?: () => void;
 }
 message.config({
-    top: 80,          // Baja el mensaje 80px para que el Navbar no lo tape
-    duration: 3,      // 3 segundos
-    maxCount: 3,      // Máximo 3 mensajes en pantalla al mismo tiempo
+    top: 80,
+    duration: 3,
+    maxCount: 3,
 });
 export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                                         modo,
@@ -98,6 +75,8 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     const [fotosLugar, setFotosLugar] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>(datosIniciales?.imagenes || []);
     const [imgActualIndex, setImgActualIndex] = useState<number>(0);
+    const [posiblesDuplicados, setPosiblesDuplicados] = useState<{ lugar: LugarTuristico; motivo: string }[]>([]);
+    const [cargandoDuplicados, setCargandoDuplicados] = useState<boolean>(false);
 
     const [preview, setPreview] = useState<LugarTuristico>({
         nombre: datosIniciales?.nombre || "Título del Destino",
@@ -176,6 +155,17 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             );
         }
     }, [modo]);
+
+    // 🔍 Buscar duplicados solo en modo 'aprobar' cuando se cargue el destino
+    useEffect(() => {
+        if (modo === 'aprobar' && datosIniciales) {
+            setCargandoDuplicados(true);
+            buscarPosiblesDuplicados(datosIniciales).then((res) => {
+                setPosiblesDuplicados(res);
+                setCargandoDuplicados(false);
+            });
+        }
+    }, [modo, datosIniciales]);
 
     // Manejo de previsualización para nuevas imágenes de archivo
     useEffect(() => {
@@ -842,6 +832,35 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     * Así es como aparecerá tu destino en el buscador principal.
                                 </Typography>
                             </div>
+                            {/* LISTA DE COINCIDENCIAS */}
+                            {posiblesDuplicados.map(({ lugar, motivo }) => (
+                                <Paper
+                                    key={lugar.id}
+                                    elevation={0}
+                                    sx={{ p: 1.5, mb: 1, borderRadius: "12px", bgcolor: "#ffffff", border: "1px solid #fcd34d" }}
+                                >
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Box sx={{ maxWidth: '70%' }}>
+                                            <Typography variant="body2" fontWeight="800" sx={{ color: "#0f172a" }}>
+                                                {lugar.nombre}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: "#b45309", fontWeight: "600", display: "block" }}>
+                                                Motivo: {motivo}
+                                            </Typography>
+                                        </Box>
+
+                                        {/* 🔗 Botón que abre el destino existente en pestaña nueva */}
+                                        <Button
+                                            type="link"
+                                            size="small"
+                                            icon={<OpenInNewIcon style={{ fontSize: 14 }} />}
+                                            onClick={() => window.open(`/pagina2/${lugar.id}`, '_blank')}
+                                        >
+                                            Comparar
+                                        </Button>
+                                    </Stack>
+                                </Paper>
+                            ))}
                         </Box>
                     </Grid>
 

@@ -75,10 +75,9 @@ function App() {
                             <Route path="/register" element={<Register />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/" element={<InitialPage />} />
-
-                        <Route element={<ProtectedRoute rolesPermitidos={['turista', 'administrador']} />}>
-                            <Route path="/pagina2/:id" element={<Pagina2 />} />
                             <Route path="/Destinos" element={<DestinosPage />} />
+                            <Route path="/pagina2/:id" element={<Pagina2 />} />
+
                             <Route path="/localizacion" element={<div style={{ padding: '32px' }}>
                                 <h2>Parque Nacional Natural Tayrona</h2>
                                 <MapaUbicacion
@@ -87,6 +86,8 @@ function App() {
                                     nombre="Parque Tayrona"
                                 />
                             </div>} />
+                        <Route element={<ProtectedRoute rolesPermitidos={['turista', 'administrador']} />}>
+
                             <Route path="/Publicar" element={<PublicarDestino />} />
                             <Route path="/editar-destino/:id" element={<EditarDestino />} />
                             <Route path="/profile" element={<Profile />} />
