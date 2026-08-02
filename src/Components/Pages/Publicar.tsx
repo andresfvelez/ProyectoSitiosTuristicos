@@ -45,7 +45,7 @@ const OPCIONES_ACTIVIDADES = [
 ];
 
 const OPCIONES_RESTAURANTE = [
-    { label: '🇨🇴 Comida Típica / Criolla', value: 'comida_tipica' },
+    { label: 'Comida Típica / Criolla', value: 'comida_tipica' },
     { label: '🐟 Pescados y Mariscos', value: 'mariscos' },
     { label: '🥩 Parrilla / Carnes', value: 'parrilla' },
     { label: '🥗 Opción Vegetariana', value: 'vegetariana' },
@@ -68,7 +68,7 @@ const OPCIONES_SERVICIOS = [
     { label: '🚻 Baños Públicos', value: 'banos' },
 ];
 
-const PublicarDestino = () => {
+const PublicarAntiguo = () => {
     const [form] = Form.useForm();
 
     const [preview, setPreview] = useState({
@@ -79,6 +79,7 @@ const PublicarDestino = () => {
         minimo: 0,
         rnt: "",
         unescoId: "",
+        nit: "",
         tagsEspeciales: [] as string[],
         servicios: [] as string[],
         petFriendly: false,
@@ -159,14 +160,28 @@ const PublicarDestino = () => {
                 return message.warning("Sube al menos una foto del destino");
             }
 
+            const datosLimpios = { ...values };
+
+            if (datosLimpios.categoria === "aventura") {
+                // Si es aventura, destruimos los campos de negocios
+                datosLimpios.nit = "";
+                datosLimpios.contactoWhatsapp = ""; // Opcional, si tampoco quieres WhatsApp en aventura
+            } else {
+                // Si es hotel o restaurante, destruimos los campos de atractivos naturales
+                datosLimpios.rnt = "";
+                datosLimpios.unescoId = "";
+                datosLimpios.dificultad = "";
+                datosLimpios.queLlevar = "";
+            }
             setCargando(true);
 
+            /*
             await guardarDestino(
-                values,
+                datosLimpios,
                 fotosLugar,
                 userLocation
             );
-
+            */
             message.success("¡Destino guardado correctamente!");
 
             form.resetFields();
@@ -334,28 +349,53 @@ const PublicarDestino = () => {
                                     <ShieldIcon color="primary" /> Verificación y Registro Oficial
                                 </Typography>
 
+
                                 <Grid container spacing={2}>
-                                    <Grid item xs={12} sm={6}>
-                                        <Form.Item
-                                            name="rnt"
-                                            label={
-                                                <span>
+                                    {esAventura && (
+                                        <>
+                                        <Grid item xs={12} sm={6}>
+                                            <Form.Item
+                                                name="rnt"
+                                                label={
+                                                    <span>
                                                     <strong>RNT (Registro Nac. de Turismo)</strong>{" "}
-                                                    <Tooltip title="Número de registro oficial del prestador turístico en Colombia">
+                                                        <Tooltip title="Número de registro oficial del prestador turístico en Colombia">
                                                         <Typography component="span" variant="caption" color="text.secondary">(?)</Typography>
                                                     </Tooltip>
                                                 </span>
-                                            }
-                                        >
-                                            <Input placeholder="Ej: 45892" prefix={<VerifiedIcon sx={{ fontSize: 16, color: '#0ea5e9' }} />} />
-                                        </Form.Item>
-                                    </Grid>
+                                                }
+                                            >
+                                                <Input placeholder="Ej: 45892" prefix={<VerifiedIcon sx={{ fontSize: 16, color: '#0ea5e9' }} />} />
+                                            </Form.Item>
+                                        </Grid>
 
-                                    <Grid item xs={12} sm={6}>
-                                        <Form.Item name="unescoId" label={<strong>Código UNESCO (Si aplica)</strong>}>
-                                            <Input placeholder="Ej: UNESCO-123" />
-                                        </Form.Item>
-                                    </Grid>
+                                            <Grid item xs={12} sm={6}>
+                                                <Form.Item name="unescoId" label={<strong>Código UNESCO (Si aplica)</strong>}>
+                                                    <Input placeholder="Ej: UNESCO-123" />
+                                                </Form.Item>
+                                            </Grid>
+                                        </>
+                                    )}
+                                    {esHotelORestaurante &&
+                                        (
+                                            <Grid item xs={12} sm={6}>
+                                                <Form.Item
+                                                    name="nit"
+                                                    label={
+                                                        <span>
+                                                    <strong>NIT (Número de Identificación Tributaria)</strong>{" "}
+                                                            <Tooltip title="Número de Identificación Tributaria del Local">
+                                                        <Typography component="span" variant="caption" color="text.secondary">(?)</Typography>
+                                                    </Tooltip>
+                                                </span>
+                                                    }
+                                                >
+                                                    <Input placeholder="Ej: 45892" prefix={<VerifiedIcon sx={{ fontSize: 16, color: '#0ea5e9' }} />} />
+                                                </Form.Item>
+                                            </Grid>
+                                        )
+
+                                    }
                                 </Grid>
 
                                 {/* 🎯 SECCIÓN 2: ETIQUETAS DINÁMICAS SEGÚN CATEGORÍA */}
@@ -502,10 +542,18 @@ const PublicarDestino = () => {
 
                                     {/* Insignias Flotantes en la Imagen */}
                                     <Stack direction="row" spacing={1} sx={{ position: "absolute", top: 14, right: 14 }}>
-                                        {preview.rnt && (
+                                        {preview.rnt && esAventura && (
                                             <Chip
                                                 icon={<VerifiedIcon style={{ color: 'white', fontSize: 14 }} />}
                                                 label={`RNT ${preview.rnt}`}
+                                                size="small"
+                                                sx={{ bgcolor: "#10b981", color: "white", fontWeight: "800", fontSize: "0.65rem" }}
+                                            />
+                                        )}
+                                        {preview.nit && esHotelORestaurante && (
+                                            <Chip
+                                                icon={<VerifiedIcon style={{ color: 'white', fontSize: 14 }} />}
+                                                label={`NIT ${preview.nit}`}
                                                 size="small"
                                                 sx={{ bgcolor: "#10b981", color: "white", fontWeight: "800", fontSize: "0.65rem" }}
                                             />
@@ -681,4 +729,4 @@ const PublicarDestino = () => {
     );
 };
 
-export default PublicarDestino;
+export default PublicarAntiguo;

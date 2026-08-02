@@ -14,6 +14,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
 import Logout from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import {EstadoConexion} from "./EstadoConexion";
 interface HeaderProps {
     sections: ReadonlyArray<{ title: string; url: string; }>;
@@ -33,6 +34,7 @@ const SUGERENCIAS_IA = [
 
 function Headers({ sections, availablePlaces }: HeaderProps) {
     const navigate = useNavigate();
+
     const [isLoggedIn] = useState<boolean>(true);
     const [options, setOptions] = useState<any[]>([]);
     const [searchText, setSearchText] = useState("");
@@ -140,6 +142,39 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                     <a className="nav-link nav-custom-link" href={section.url}>{section.title}</a>
                                 </li>
                             ))}
+                            {/* 🛡️ SECCIÓN ADMINISTRADOR (Solo visible si rol === 'administrador') */}
+                            {rol === 'administrador' && (
+                                <li className="nav-item ms-3 border-start ps-3 d-flex align-items-center gap-2">
+                                    <span className="badge bg-danger me-1" style={{ fontSize: '0.65rem' }}>ADMIN</span>
+
+                                    {/* 1. Destinos Pendientes */}
+                                    <RouterLink
+                                        to="/admin-panel"
+                                        className="btn btn-sm btn-warning text-dark fw-bold d-flex align-items-center gap-1"
+                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
+                                    >
+                                        ⏳ Pendientes
+                                    </RouterLink>
+
+                                    {/* 2. Scrapper */}
+                                    <RouterLink
+                                        to="/admin/scrapper"
+                                        className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
+                                    >
+                                        🤖 Scrapper
+                                    </RouterLink>
+
+                                    {/* 3. Reportes */}
+                                    <RouterLink
+                                        to="/admin/reportes"
+                                        className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
+                                    >
+                                        📊 Reportes
+                                    </RouterLink>
+                                </li>
+                            )}
                         </ul>
                     </div>
                 </div>
@@ -222,6 +257,15 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                             Mi Perfil
                         </MenuItem>
 
+                        {/* 🛡️ Opción de Panel Admin en el menú desplegable si es Administrador */}
+                        {rol === 'administrador' && (
+                            <MenuItem component={RouterLink} to="/admin-panel">
+                                <ListItemIcon>
+                                    <AdminPanelSettingsIcon fontSize="small" color="primary" />
+                                </ListItemIcon>
+                                Panel de Control Admin
+                            </MenuItem>
+                        )}
                         <Divider />
 
                         {/* Opción 2: Disparador del método de cierre de sesión de Firebase */}

@@ -1,4 +1,4 @@
-import {collection, getDocs, addDoc, query, where, doc, getDoc} from 'firebase/firestore';
+import {collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, deleteDoc} from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import {LugarTuristico, Opinion} from '../Components/models/LugarTuristico';
 
@@ -25,7 +25,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
     });
 
     // 3. Mapeamos los lugares con su array de opiniones y puntuación calculada
-    return snapshotLugares.docs.map(doc => {
+    const todosLosLugares = snapshotLugares.docs.map(doc => {
       const data = doc.data();
       const lugarId = doc.id;
 
@@ -45,7 +45,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
         puntuacion: puntuacionCalculada   // 👈 Promedio actualizado
       } as LugarTuristico;
     });
-
+    return todosLosLugares.filter(lugar => lugar.confirmado !== false);
   } catch (error) {
     console.error("Error obteniendo lugares:", error);
     return [];
@@ -64,6 +64,25 @@ export const obtenerImagenesPorDestino = async (idDestino: string): Promise<stri
     return querySnapshot.docs.map(doc => doc.data().base64 as string);
   } catch (error) {
     console.error("Error obteniendo imágenes:", error);
+    return [];
+  }
+};
+
+
+export const obtenerLugaresPorUsuario = async (usuarioId: string): Promise<LugarTuristico[]> => {
+  try {
+    if (!usuarioId) return [];
+    const q = query(
+        collection(db, "lugares_turisticos_scrapped"),
+        where("creadorId", "==", usuarioId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as LugarTuristico[];
+  } catch (error) {
+    console.error("Error al obtener mis destinos:", error);
     return [];
   }
 };
@@ -150,7 +169,8 @@ const comprimirImagen = (file: File): Promise<string> => {
 export const guardarDestino = async (
     datos: LugarTuristico,
     archivos: File[],
-    ubicacion: { lat: number; lng: number }
+    ubicacion: { lat: number; lng: number },
+    usuarioId: string
 ): Promise<string> => {
   try {
     // Estructuramos el objeto basándonos directamente en la interfaz LugarTuristico
@@ -160,6 +180,8 @@ export const guardarDestino = async (
       categoria: datos.categoria || "aventura",
       latitud: ubicacion.lat,
       longitud: ubicacion.lng,
+      confirmado: false,
+      creadorId: usuarioId,
       ciudad: datos.ciudad || "",
       departamento: datos.departamento || "",
       puntuacion: Number(datos.puntuacion) || 0,
@@ -216,4 +238,47 @@ export const guardarDestino = async (
     console.error("Error guardando destino en Firestore:", error);
     throw error;
   }
+};
+
+// 2. OBTENER LUGARES PENDIENTES DE CONFIRMACIÓN (Solo Admin)
+export const obtenerDestinosPendientes = async (): Promise<LugarTuristico[]> => {
+  try {
+    const q = query(
+        collection(db, "lugares_turisticos_scrapped"),
+        where("confirmado", "==", false)
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as LugarTuristico[];
+  } catch (error) {
+    console.error("Error obteniendo destinos pendientes:", error);
+    return [];
+  }
+};
+
+// 3. APROBAR/CONFIRMAR DESTINO (Solo Admin)
+export const confirmarDestino = async (id: string): Promise<void> => {
+  const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
+  await updateDoc(lugarRef, { confirmado: true });
+};
+
+// 4. RECHAZAR / ELIMINAR DESTINO (Solo Admin)
+export const rechazarDestino = async (id: string): Promise<void> => {
+  const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
+  await deleteDoc(lugarRef);
+};
+
+// 5. ACTUALIZAR DESTINO (Edición por Creador o Admin)
+export const actualizarDestino = async (
+    id: string,
+    datosActualizados: Partial<LugarTuristico>
+): Promise<void> => {
+  const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
+  await updateDoc(lugarRef, {
+    ...datosActualizados,
+    fechaActualizacion: Date.now()
+  });
 };

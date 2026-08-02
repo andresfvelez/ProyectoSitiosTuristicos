@@ -40,14 +40,16 @@ export default function FeaturedPost(props: FeaturedPostProps) {
         return imgGuatape;
     }, [post.imagenes]);
     useEffect(() => {
+        const totalImagenes = post.imagenes?.length || 0;
         // Solo iniciamos el timer si hay más de una imagen
-        if (post.imagenes && post.imagenes.length > 1) {
+        if (totalImagenes > 1) {
             const interval = setInterval(() => {
-                setFotoActual((prev) => (prev + 1) % post.imagenes.length);
-            }, 10000); // Cambia cada 3000ms (3 segundos)
-
-            return () => clearInterval(interval); // Limpiamos al cerrar el modal
+                setFotoActual((prev) => (prev + 1) % totalImagenes);
+            }, 10000);
+            return () => clearInterval(interval);
         }
+
+
     }, [post.imagenes]);
 // Función para las mini-cards de abajo (Explora más)
     if (sub === '1') {
@@ -76,7 +78,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             <div className="card-destino" onClick={() => setrenderizar(ventana === 'principal')}>
                 <div className="image-container">
                     <img
-                        src={post.imagenes[0] ||  imgGuatape}
+                        src={post.imagenes?.[0] ||  imgGuatape}
                         alt={post.nombre}
                         onError={(e) => {
                             e.currentTarget.src = "https://via.placeholder.com/300x200?text=Error+Carga";
@@ -107,7 +109,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             </div>
 
             <Modal
-                visible={renderizar}
+                open={renderizar}
                 onCancel={() => setrenderizar(false)}
                 footer={null}
                 width={600}

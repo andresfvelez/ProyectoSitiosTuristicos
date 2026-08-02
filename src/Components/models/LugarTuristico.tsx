@@ -6,19 +6,28 @@ export interface LugarTuristico {
     latitud: number;
     longitud: number;
     ciudad: string;
-    departamento: string;
+    departamento?: string;
     puntuacion:number;
     opiniones?:Opinion[];
     pais:string;
     minimo:number;
-    recomendado:number;
-    imagenes:string[];
+    recomendado?:number;
+    imagenes?:string[];
     fechaRegistro?: number;
-    //  CAMPOS DE CALIDAD Y ATRIBUTOS
+
+    // 🛡️ CAMPOS DE CONTROL Y PERMISOS
+    confirmado?: boolean;
+    creadorId?: string;
+
+
+    // VERIFICACIÓN Y NEGOCIO
     rnt?: string;
     unescoId?: string;
-    tagsEspeciales?: string[]; // Etiquetas dinámicas (actividades, cocina o comodidades)
-    servicios?: string[];     // Wi-Fi, Parqueadero, Baños, etc.
+    nit?:string;
+
+    // ETIQUETAS Y SERVICIOS
+    tagsEspeciales?: string[];
+    servicios?: string[];
     petFriendly?: boolean;
     accesibleSillaRuedas?: boolean;
     dificultad?: string;

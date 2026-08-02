@@ -5,7 +5,7 @@ import FooterComponent from "./Layouts/Footer";
 import Headers from "./Layouts/Header";
 import InitialPage from "./Components/Pages/InitialPage";
 import Pagina2 from "./Components/Pages/Lugar.page";
-import PublicarDestino  from "./Components/Pages/Publicar";
+import PublicarDestino  from "./Components/Pages/PublicarDestino";
 import Profile from "./Components/Pages/Profile";
 import Login from "./Components/Pages/Login";
 import Register from "./Components/Pages/Register";
@@ -15,7 +15,10 @@ import {obtenerImagenesPorDestino, obtenerLugares} from "./services/lugaresServi
 import {LugarTuristico} from "./Components/models/LugarTuristico";
 import {AuthProvider} from "./auth/AuthProvider";
 import { ProtectedRoute } from './auth/ProtectedRoute';
-const { Content, Footer } = Layout;
+import EditarDestino from "./Components/Pages/EditarDestino";
+import AprobarDestinos from "./Components/Pages/AprobarDestinos";
+import DestinosPage from "./Components/Pages/DestinosPage";
+const { Content } = Layout;
 
 // Rutas
 
@@ -34,9 +37,7 @@ function App() {
     useEffect(() => {
         // Aquí traes tus 50-100 lugares de Firebase una sola vez
         const fetchLugares = async () => {
-            console.log("consiguiendo data 2",)
             const listaLugares = await obtenerLugares();
-            console.log("data 2",listaLugares)
             /*
             const lugaresConFotos = await Promise.all(
                 listaLugares.map(async (lugar) => {
@@ -77,6 +78,7 @@ function App() {
 
                         <Route element={<ProtectedRoute rolesPermitidos={['turista', 'administrador']} />}>
                             <Route path="/pagina2/:id" element={<Pagina2 />} />
+                            <Route path="/Destinos" element={<DestinosPage />} />
                             <Route path="/localizacion" element={<div style={{ padding: '32px' }}>
                                 <h2>Parque Nacional Natural Tayrona</h2>
                                 <MapaUbicacion
@@ -85,13 +87,13 @@ function App() {
                                     nombre="Parque Tayrona"
                                 />
                             </div>} />
-                            <Route path="/Destinos" element={<PublicarDestino />} />
-
+                            <Route path="/Publicar" element={<PublicarDestino />} />
+                            <Route path="/editar-destino/:id" element={<EditarDestino />} />
                             <Route path="/profile" element={<Profile />} />
                         </Route>
+
                         <Route element={<ProtectedRoute rolesPermitidos={['administrador']} />}>
-                            <Route path="/Publicar" element={<PublicarDestino />} />
-                            <Route path="/admin-panel"  />
+                            <Route path="/admin-panel" element={<AprobarDestinos />} />
                         </Route>
                         </Routes>
                     </Content>

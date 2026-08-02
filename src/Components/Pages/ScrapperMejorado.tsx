@@ -596,7 +596,7 @@ const ScrapperMejorado = () => {
                     acceso: clasificacion.acceso || "Vehículo simple"
                 };
 
-                await guardarDestino(payload, fotosDescargadas, ubicacionValida);
+                await guardarDestino(payload, fotosDescargadas, ubicacionValida,"sistema");
 
                 setStatus(s => ({ ...s, log: `Esperando regulador de API...` }));
                 await new Promise(r => setTimeout(r, 3000));

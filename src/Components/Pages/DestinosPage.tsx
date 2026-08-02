@@ -1,0 +1,262 @@
+import React, { useEffect, useState } from "react";
+import {
+    Box,
+    Container,
+    Typography,
+    Grid,
+    Card,
+    CardMedia,
+    CardContent,
+    CardActions,
+    Chip,
+    Stack,
+    Paper,
+    Button as MuiButton
+} from "@mui/material";
+import { Tabs, Input, Tag, Spin, Empty } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import EditIcon from "@mui/icons-material/Edit";
+import StarIcon from "@mui/icons-material/Star";
+import { useNavigate } from "react-router-dom";
+
+import { useAuth } from "../../auth/AuthProvider";
+import { LugarTuristico } from "../models/LugarTuristico";
+import { obtenerLugares, obtenerLugaresPorUsuario, obtenerImagenesPorDestino } from "../../services/lugaresService";
+import BannerImg from "../../Layouts/Images/Banner.png";
+
+// Helper para interpretar formato de imagen
+const getImagenSrc = (src?: string | null) => {
+    if (!src) return BannerImg;
+    if (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:image')) {
+        return src;
+    }
+    return `data:image/png;base64,${src}`;
+};
+
+// 🎴 COMPONENTE INDIVIDUAL DE TARJETA CON CARGA INDEPENDIENTE DE PORTADA
+const TarjetaDestino: React.FC<{ lugar: LugarTuristico; tabActiva: string; usuario: any }> = ({ lugar, tabActiva, usuario }) => {
+    const navigate = useNavigate();
+    const [fotoPortada, setFotoPortada] = useState<string | null>(
+        lugar.imagenes && lugar.imagenes.length > 0 ? lugar.imagenes[0] : null
+    );
+
+    useEffect(() => {
+        // Si el objeto no trae fotos embebidas, traemos la primera foto desde la colección imagenes_b64
+        if (!fotoPortada && lugar.id) {
+            obtenerImagenesPorDestino(lugar.id).then((fotos) => {
+                if (fotos && fotos.length > 0) {
+                    setFotoPortada(fotos[0]);
+                }
+            });
+        }
+    }, [lugar.id, fotoPortada]);
+
+    return (
+        <Grid item xs={12} sm={6} md={4} lg={3}>
+            <Card sx={{ borderRadius: "20px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", height: "100%", display: "flex", flexDirection: "column" }}>
+
+                {/* IMAGEN DE PORTADA Y BADGES */}
+                <Box sx={{ position: "relative" }}>
+                    <CardMedia
+                        component="img"
+                        height="200"
+                        image={getImagenSrc(fotoPortada)}
+                        alt={lugar.nombre}
+                    />
+
+                    {/* Estado de Moderación (Solo en pestaña 'Mis Destinos') */}
+                    {tabActiva === "2" && (
+                        <Box sx={{ position: "absolute", top: 12, left: 12 }}>
+                            {lugar.confirmado ? (
+                                <Tag color="green" style={{ fontWeight: 'bold' }}>APROBADO</Tag>
+                            ) : (
+                                <Tag color="orange" style={{ fontWeight: 'bold' }}>PENDIENTE REVISIÓN</Tag>
+                            )}
+                        </Box>
+                    )}
+
+                    <Chip
+                        label={(lugar.categoria || "aventura").toUpperCase()}
+                        size="small"
+                        sx={{ position: "absolute", bottom: 12, right: 12, bgcolor: "rgba(15,23,42,0.8)", color: "white", fontWeight: "bold" }}
+                    />
+                </Box>
+
+                {/* CUERPO DE LA TARJETA */}
+                <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+                        <LocationOnIcon sx={{ fontSize: 16, color: "#0ea5e9" }} />
+                        <Typography variant="caption" fontWeight="800" color="#0ea5e9" sx={{ textTransform: "uppercase" }}>
+                            {lugar.ciudad || "Colombia"}
+                        </Typography>
+                    </Stack>
+
+                    <Typography variant="h6" fontWeight="800" sx={{ mb: 1, fontSize: "1.1rem", lineHeight: 1.3 }}>
+                        {lugar.nombre}
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary" sx={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        mb: 2
+                    }}>
+                        {lugar.descripcion}
+                    </Typography>
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="subtitle1" fontWeight="900" color="#0ea5e9">
+                            ${Number(lugar.minimo || 0).toLocaleString("es-CO")} COP
+                        </Typography>
+
+                        {lugar.puntuacion ? (
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                                <StarIcon sx={{ fontSize: 16, color: "#f59e0b" }} />
+                                <Typography variant="caption" fontWeight="bold">{lugar.puntuacion}</Typography>
+                            </Stack>
+                        ) : null}
+                    </Stack>
+                </CardContent>
+
+                {/* ACCIONES */}
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                    {(tabActiva === "2" || lugar.creadorId === usuario?.uid) ? (
+                        <MuiButton
+                            fullWidth
+                            variant="contained"
+                            startIcon={<EditIcon />}
+                            onClick={() => navigate(`/editar-destino/${lugar.id}`)}
+                            sx={{ bgcolor: "#0284c7", borderRadius: "10px", textTransform: "none", fontWeight: "bold" }}
+                        >
+                            Editar Destino
+                        </MuiButton>
+                    ) : (
+                        <MuiButton
+                            fullWidth
+                            variant="outlined"
+                            onClick={() => navigate(`/pagina2/${lugar.id}`)}
+                            sx={{ borderRadius: "10px", textTransform: "none", fontWeight: "bold" }}
+                        >
+                            Ver Detalle
+                        </MuiButton>
+                    )}
+                </CardActions>
+
+            </Card>
+        </Grid>
+    );
+};
+
+export default function DestinosPage() {
+    const { usuario } = useAuth();
+
+    const [tabActiva, setTabActiva] = useState<string>("1");
+    const [busqueda, setBusqueda] = useState<string>("");
+    const [cargando, setCargando] = useState<boolean>(true);
+
+    const [todosLosLugares, setTodosLosLugares] = useState<LugarTuristico[]>([]);
+    const [misLugares, setMisLugares] = useState<LugarTuristico[]>([]);
+
+    useEffect(() => {
+        const cargarData = async () => {
+            setCargando(true);
+            const publicos = await obtenerLugares();
+            setTodosLosLugares(publicos);
+
+            if (usuario?.uid) {
+                const propios = await obtenerLugaresPorUsuario(usuario.uid);
+                setMisLugares(propios);
+            }
+
+            setCargando(false);
+        };
+
+        cargarData();
+    }, [usuario]);
+
+    const filtrarLista = (lista: LugarTuristico[]) => {
+        if (!busqueda.trim()) return lista;
+        const queryLower = busqueda.toLowerCase();
+        return lista.filter(l =>
+            l.nombre?.toLowerCase().includes(queryLower) ||
+            l.ciudad?.toLowerCase().includes(queryLower) ||
+            l.categoria?.toLowerCase().includes(queryLower)
+        );
+    };
+
+    const listaAMostrar = tabActiva === "1"
+        ? filtrarLista(todosLosLugares)
+        : filtrarLista(misLugares);
+
+    return (
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+            <Paper elevation={0} sx={{ p: 4, borderRadius: "24px", bgcolor: "#f8fafc", mb: 4, border: "1px solid #e2e8f0" }}>
+                <Typography variant="h4" fontWeight="900" sx={{ mb: 1, color: "#0f172a" }}>
+                    Explora y Gestiona Destinos
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Encuentra lugares increíbles o administra los sitios que has compartido con la comunidad.
+                </Typography>
+
+                <Input
+                    size="large"
+                    placeholder="Buscar por nombre de destino, ciudad o categoría..."
+                    prefix={<SearchOutlined style={{ color: "#0ea5e9", fontSize: 20 }} />}
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    allowClear
+                    style={{ borderRadius: "12px", height: "50px", fontSize: "1rem" }}
+                />
+            </Paper>
+
+            <Tabs
+                activeKey={tabActiva}
+                onChange={setTabActiva}
+                size="large"
+                items={[
+                    {
+                        key: "1",
+                        label: `🌏 Destinos Turísticos (${todosLosLugares.length})`,
+                    },
+                    {
+                        key: "2",
+                        label: `👤 Mis Destinos Publicados (${misLugares.length})`,
+                        disabled: !usuario
+                    }
+                ]}
+            />
+
+            <Box sx={{ mt: 3 }}>
+                {cargando ? (
+                    <Box sx={{ textAlign: "center", py: 8 }}>
+                        <Spin size="large" tip="Cargando destinos..." />
+                    </Box>
+                ) : listaAMostrar.length === 0 ? (
+                    <Box sx={{ py: 6 }}>
+                        <Empty
+                            description={
+                                tabActiva === "2"
+                                    ? "Aún no has publicado ningún destino."
+                                    : "No se encontraron destinos que coincidan con la búsqueda."
+                            }
+                        />
+                    </Box>
+                ) : (
+                    <Grid container spacing={3}>
+                        {listaAMostrar.map((lugar) => (
+                            <TarjetaDestino
+                                key={lugar.id}
+                                lugar={lugar}
+                                tabActiva={tabActiva}
+                                usuario={usuario}
+                            />
+                        ))}
+                    </Grid>
+                )}
+            </Box>
+        </Container>
+    );
+}
