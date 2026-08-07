@@ -322,6 +322,27 @@ export const actualizarDestino = async (
     fechaActualizacion: Date.now()
   });
 };
+
+export const reportarLugar = async (
+    lugarId: string,
+    usuarioId: string,
+    motivo: string
+): Promise<boolean> => {
+  try {
+    await addDoc(collection(db, "reportes"), {
+      lugarId: lugarId,
+      usuarioId: usuarioId,
+      motivo: motivo,
+      fecha: Date.now(),
+      estado: "pendiente" // Para revisión de administradores
+    });
+    return true;
+  } catch (error) {
+    console.error("Error al registrar el reporte:", error);
+    return false;
+  }
+};
+
 //Eliminar publicacion(usuario creador o admin)
 export const eliminarDestino = async (destinoId: string, usuarioId: string): Promise<boolean> => {
   try {

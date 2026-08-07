@@ -18,7 +18,6 @@ import Star from '../../Layouts/Images/iconstar.png';
 
 import {Box, Grid, Paper, Typography} from '@mui/material';
 import FeaturedPost from './Seccions/Cards';
-import {ApiService} from '../../services/ApiServices';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
@@ -33,11 +32,9 @@ import ScrapperMejorado from './ScrapperMejorado';
 
 const InitialPage = () => {
     const navigate = useNavigate();
-    const api = new ApiService();
     const [lugares, setLugares] = useState<LugarTuristico[]>([]);
 
     const [renderizar, setrenderizar] = useState<boolean>(false);
-    // const api = new ApiService(accountIdentifier);
     const [activeIndex, setActiveIndex] = useState(0);
 
     //Cambiar de tema oscuro y claro

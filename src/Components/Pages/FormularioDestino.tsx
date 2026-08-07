@@ -25,8 +25,8 @@ import PetsIcon from '@mui/icons-material/Pets';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+
 import { useNavigate } from 'react-router-dom';
 // Ant Design Components
 import { Button, Form, Input, InputNumber, Checkbox, Switch, Select, Tooltip, message, Popconfirm } from "antd";
@@ -36,18 +36,23 @@ import BannerImg from "../../Layouts/Images/Banner.png";
 import "./styles/PublicarDestino.css";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
 import SelectorImagenes from "./Seccions/SelectorImages";
-// 👈 Importamos obtenerImagenesPorDestino
 import { guardarDestino, actualizarDestino, confirmarDestino, rechazarDestino, obtenerImagenesPorDestino } from "../../services/lugaresService";
 import { LugarTuristico } from "../models/LugarTuristico";
-import {buscarPosiblesDuplicados} from "../../services/ValidacionLugar";
+import { buscarPosiblesDuplicados } from "../../services/ValidacionLugar";
 import {
+    OPCIONES_CLIMA,
+    OPCIONES_ENTORNO,
+    OPCIONES_PRESUPUESTO,
+    OPCIONES_ACCESO,
+    OPCIONES_RITMO,
+    OPCIONES_COMPANIA,
     OPCIONES_ACTIVIDADES,
     OPCIONES_HOTEL,
     OPCIONES_RESTAURANTE,
-    OPCIONES_SERVICIOS
+    OPCIONES_SERVICIOS,
+    obtenerLabelFormateado
 } from "../models/OpcionesDestinos";
-
-
+import {obtenerCiudadesColombia} from "../../services/ApiServices";
 
 interface FormularioDestinoProps {
     modo: 'crear' | 'editar' | 'aprobar';
@@ -55,11 +60,13 @@ interface FormularioDestinoProps {
     usuarioActualId?: string;
     onExito?: () => void;
 }
+
 message.config({
     top: 80,
     duration: 3,
     maxCount: 3,
 });
+
 export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                                         modo,
                                                                         datosIniciales,
@@ -78,7 +85,13 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     const [posiblesDuplicados, setPosiblesDuplicados] = useState<{ lugar: LugarTuristico; motivo: string }[]>([]);
     const [cargandoDuplicados, setCargandoDuplicados] = useState<boolean>(false);
 
-    const [preview, setPreview] = useState<LugarTuristico>({
+    // 🌟 ESTADOS PARA LA GESTIÓN INDEPENDIENTE DE CIUDADES Y MAPA
+    const [listaCiudades, setListaCiudades] = useState<{ label: string; value: string }[]>([]);
+    const [cargandoCiudades, setCargandoCiudades] = useState<boolean>(false);
+    const [nombreMapaTemp, setNombreMapaTemp] = useState<string>(datosIniciales?.ciudad || "");
+    const [mapKey, setMapKey] = useState<number>(Date.now());
+
+    const [preview, setPreview] = useState<any>({
         nombre: datosIniciales?.nombre || "Título del Destino",
         descripcion: datosIniciales?.descripcion || "Aquí aparecerá la descripción que escribas...",
         ciudad: datosIniciales?.ciudad || "Ciudad",
@@ -92,15 +105,21 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         nit: datosIniciales?.nit || "",
         tagsEspeciales: datosIniciales?.tagsEspeciales || [],
         servicios: datosIniciales?.servicios || [],
-        petFriendly: datosIniciales?.petFriendly || false,
-        accesibleSillaRuedas: datosIniciales?.accesibleSillaRuedas || false,
+        petFriendly: datosIniciales?.petFriendly === true || (datosIniciales as any)?.petFriendly === "true",
+        accesibleSillaRuedas: datosIniciales?.accesibleSillaRuedas === true || (datosIniciales as any)?.accesibleSillaRuedas === "true",
         dificultad: datosIniciales?.dificultad || "Baja",
         contactoWhatsapp: datosIniciales?.contactoWhatsapp || "",
         queLlevar: datosIniciales?.queLlevar || "",
-        puntuacion: datosIniciales?.puntuacion || 0
+        puntuacion: datosIniciales?.puntuacion || 0,
+
+        clima: (datosIniciales as any)?.clima || "calido",
+        entorno: (datosIniciales as any)?.entorno || "naturaleza",
+        rangoPresupuesto: (datosIniciales as any)?.rangoPresupuesto || "economico",
+        tipoAcceso: (datosIniciales as any)?.tipoAcceso || "carro",
+        ritmo: (datosIniciales as any)?.ritmo || "relax",
+        companiaIdeal: (datosIniciales as any)?.companiaIdeal || []
     });
 
-    // Helper para interpretar correctamente URLs, Blob local o cadenas Base64
     const getImagenSrc = (src: string) => {
         if (!src) return BannerImg;
         if (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:image')) {
@@ -109,17 +128,44 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         return `data:image/png;base64,${src}`;
     };
 
-    // 1. CARGA DE DATOS E IMÁGENES DESDE FIREBASE
+    // 1. CÓDIGO PARA CARGAR CIUDADES DESDE API COLOMBIA
+    useEffect(() => {
+        const fetchCiudades = async () => {
+            setCargandoCiudades(true);
+            const opciones = await obtenerCiudadesColombia();
+            setListaCiudades(opciones);
+            setCargandoCiudades(false);
+        };
+
+        fetchCiudades();
+    }, []);
+
+    // 2. CARGA Y PARSEO DE DATOS INICIALES DESDE FIREBASE
     useEffect(() => {
         if (datosIniciales) {
-            form.setFieldsValue(datosIniciales);
-            setPreview(datosIniciales);
+            const isPetFriendly = datosIniciales.petFriendly === true || (datosIniciales as any).petFriendly === "true";
+            const isAccesible = datosIniciales.accesibleSillaRuedas === true || (datosIniciales as any).accesibleSillaRuedas === "true";
+
+            const datosNormalizados = {
+                ...datosIniciales,
+                petFriendly: isPetFriendly,
+                accesibleSillaRuedas: isAccesible,
+                clima: (datosIniciales as any).clima || "calido",
+                entorno: (datosIniciales as any).entorno || "naturaleza",
+                rangoPresupuesto: (datosIniciales as any).rangoPresupuesto || "economico",
+                tipoAcceso: (datosIniciales as any).tipoAcceso || "carro",
+                ritmo: (datosIniciales as any).ritmo || "relax",
+                companiaIdeal: (datosIniciales as any).companiaIdeal || []
+            };
+
+            form.setFieldsValue(datosNormalizados);
+            setPreview(datosNormalizados);
+            setNombreMapaTemp(datosIniciales.ciudad || "");
 
             if (datosIniciales.latitud && datosIniciales.longitud) {
                 setUserLocation({ lat: datosIniciales.latitud, lng: datosIniciales.longitud });
             }
 
-            // Cargar imágenes asociadas desde Firebase
             const fetchImagenes = async () => {
                 if (datosIniciales.imagenes && datosIniciales.imagenes.length > 0) {
                     setPreviewUrls(datosIniciales.imagenes);
@@ -136,10 +182,9 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     }, [datosIniciales, form]);
 
     const handleValuesChange = (_: any, allValues: any) => {
-        setPreview(prev => ({ ...prev, ...allValues }));
+        setPreview((prev: any) => ({ ...prev, ...allValues }));
     };
 
-    // Geolocalización inicial solo en modo 'crear'
     useEffect(() => {
         if (modo === 'crear' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -156,7 +201,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         }
     }, [modo]);
 
-    // 🔍 Buscar duplicados solo en modo 'aprobar' cuando se cargue el destino
     useEffect(() => {
         if (modo === 'aprobar' && datosIniciales) {
             setCargandoDuplicados(true);
@@ -167,7 +211,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         }
     }, [modo, datosIniciales]);
 
-    // Manejo de previsualización para nuevas imágenes de archivo
     useEffect(() => {
         if (fotosLugar.length > 0) {
             const urls = fotosLugar.map(file => URL.createObjectURL(file));
@@ -185,14 +228,62 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         setImgActualIndex((prev) => (prev === previewUrls.length - 1 ? 0 : prev + 1));
     };
 
+    // 📍 3. ACCIÓN AL MOVER EL MAPA: REGISTRA EN VARIABLE TEMPORAL SIN BORRAR EL CAMPO CIUDAD
     const handleMapUpdate = (lat: number, lng: number, nombre: string) => {
-        if (modo === 'aprobar') return; // Bloquea actualización de mapa en moderación
+        if (modo === 'aprobar') return;
         setUserLocation({ lat, lng });
-        form.setFieldsValue({ ciudad: nombre });
-        setPreview(prev => ({ ...prev, ciudad: nombre, latitud: lat, longitud: lng }));
+        setNombreMapaTemp(nombre); // 👈 Registra el nombre dado por el mapa en la variable temporal
+
+        // Actualizamos la previsualización respetando la casilla si existe
+        const ciudadCasilla = form.getFieldValue('ciudad');
+        setPreview((prev: any) => ({
+            ...prev,
+            ciudad: ciudadCasilla || nombre || prev.ciudad,
+            latitud: lat,
+            longitud: lng
+        }));
     };
 
-    // --- GUARDAR O EDITAR DESTINO ---
+    // 📍 4. ACCIÓN AL SELECCIONAR CIUDAD EN EL DROPDOWN: REDIRECCIONA EL MAPA
+    const handleSeleccionarCiudad = async (ciudadNombre: string) => {
+        form.setFieldsValue({ ciudad: ciudadNombre });
+        setPreview((prev: any) => ({ ...prev, ciudad: ciudadNombre }));
+
+        if (!ciudadNombre) return;
+
+        // Mensaje de carga para mejorar la experiencia de usuario
+        const hideLoading = message.loading(`Buscando ${ciudadNombre} en el mapa...`, 0);
+
+        try {
+            // Geocodificación para buscar las coordenadas
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(ciudadNombre)},Colombia`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const newLat = parseFloat(data[0].lat);
+                    const newLng = parseFloat(data[0].lon);
+
+                    // Actualizamos coordenadas
+                    setUserLocation({ lat: newLat, lng: newLng });
+                    setPreview((prev: any) => ({ ...prev, latitud: newLat, longitud: newLng }));
+
+                    // 👈 ESTO FUERZA AL MAPA A SALTAR A LA NUEVA UBICACIÓN
+                    setMapKey(Date.now());
+
+                    hideLoading();
+                    message.success(`Ubicación movida a ${ciudadNombre}`);
+                } else {
+                    hideLoading();
+                    message.warning(`No se encontraron coordenadas exactas para ${ciudadNombre}`);
+                }
+            }
+        } catch (e) {
+            hideLoading();
+            console.error("Error geocodificando la ciudad seleccionada:", e);
+            message.error("Hubo un error al conectar con el mapa.");
+        }
+    };
+    // 💾 5. GUARDAR O EDITAR DESTINO CON PRIORIDAD DE NOMBRE
     const onFinish = async () => {
         try {
             const values = await form.validateFields();
@@ -205,7 +296,18 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                 return message.warning("Sube al menos una foto del destino");
             }
 
-            const datosLimpios = { ...values };
+            // 🌟 LÓGICA DE PRIORIDAD PARA EL NOMBRE DE LA CIUDAD
+            // Prioridad 1: Casilla de Ciudad/Municipio
+            // Prioridad 2: Variable temporal obtenida del mapa
+            const ciudadFinal = values.ciudad?.trim()
+                ? values.ciudad.trim()
+                : (nombreMapaTemp.trim() || "Colombia");
+
+            const datosLimpios = {
+                ...values,
+                ciudad: ciudadFinal,
+                imagenes: previewUrls
+            };
 
             if (datosLimpios.categoria === "aventura") {
                 datosLimpios.nit = "";
@@ -223,7 +325,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                 await guardarDestino(
                     datosLimpios,
                     fotosLugar,
-                    userLocation,
+                    userLocation, // 👈 Las coordenadas siempre son las del puntero actual
                     usuarioActualId
                 );
                 message.success("¡Destino guardado y enviado a revisión correctamente!");
@@ -246,7 +348,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         }
     };
 
-    // --- ACCIONES DE APROBACIÓN POR ADMINISTRADOR ---
     const handleAprobarAdmin = async () => {
         if (!datosIniciales?.id) return;
         setCargando(true);
@@ -304,8 +405,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
 
     return (
         <Box className="publicar-container" sx={{ pb: 8 }}>
-
-            {/* BANNER PRINCIPAL */}
             <Paper
                 elevation={0}
                 sx={{
@@ -320,20 +419,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                     boxShadow: "0 20px 40px rgba(14, 165, 233, 0.2)"
                 }}
             >
-                <Box
-                    sx={{
-                        position: "absolute",
-                        top: "-50%",
-                        right: "-10%",
-                        width: "450px",
-                        height: "450px",
-                        borderRadius: "50%",
-                        background: "rgba(255, 255, 255, 0.12)",
-                        filter: "blur(50px)",
-                        pointerEvents: "none"
-                    }}
-                />
-
                 <Box sx={{ maxWidth: "800px", mx: "auto", textAlign: "center", position: "relative", zIndex: 1 }}>
                     <Chip
                         label={modo === 'crear' ? "PANEL DE PUBLICACIÓN" : modo === 'editar' ? "MODO EDICIÓN" : "MODERACIÓN ADMIN"}
@@ -355,26 +440,32 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                         {modo === 'aprobar' && "Revisión de Destino"}
                     </Typography>
                     <Typography variant="body1" sx={{ color: "rgba(255, 255, 255, 0.92)", maxWidth: "580px", mx: "auto" }}>
-                        {modo === 'crear' && "Completa los detalles y añade este lugar a la plataforma para que la comunidad pueda descubrirlo."}
-                        {modo === 'editar' && "Actualiza la información de tu publicación para mantenerla al día."}
-                        {modo === 'aprobar' && "Verifica la información oficial y ubicación antes de autorizar su publicación pública."}
+                        Completa los detalles e información clave para alimentar el recomendador inteligente.
                     </Typography>
                 </Box>
             </Paper>
 
             <Box sx={{ px: { xs: 2, md: 8 } }}>
                 <Grid container spacing={5}>
-
-                    {/* FORMULARIO */}
                     <Grid item xs={12} md={7}>
                         <Paper className="form-paper">
-                            {/* 🔒 DESHABILITADO EN MODO 'APROBAR' (SOLO LECTURA) */}
                             <Form
                                 form={form}
                                 layout="vertical"
                                 onValuesChange={handleValuesChange}
                                 disabled={modo === 'aprobar'}
-                                initialValues={{ categoria: 'aventura', dificultad: 'Baja' }}
+                                initialValues={{
+                                    categoria: 'aventura',
+                                    dificultad: 'Baja',
+                                    clima: 'calido',
+                                    entorno: 'naturaleza',
+                                    rangoPresupuesto: 'economico',
+                                    tipoAcceso: 'carro',
+                                    ritmo: 'relax',
+                                    companiaIdeal: [],
+                                    petFriendly: false,
+                                    accesibleSillaRuedas: false
+                                }}
                             >
                                 <Typography variant="h5" fontWeight="800" sx={{ mb: 3, color: "#0f172a" }}>
                                     Detalles del Lugar
@@ -388,15 +479,41 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     <Input.TextArea rows={4} placeholder="Describe qué hace especial a este lugar..." />
                                 </Form.Item>
 
-                                {modo !== 'aprobar' && (
-                                    <SelectorImagenes
-                                        cantidad={6}
-                                        label="Galería del Sitio"
-                                        onFilesChange={(files) => setFotosLugar(files)}
-                                    />
+                                <SelectorImagenes
+                                    cantidad={6}
+                                    label="Galería del Sitio"
+                                    onFilesChange={(files) => setFotosLugar(files)}
+                                />
+
+                                {previewUrls.length > 0 && fotosLugar.length === 0 && (
+                                    <Box sx={{ mt: 1.5, mb: 2 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight="700" display="block" sx={{ mb: 1 }}>
+                                            🖼️ Imágenes cargadas desde la base de datos ({previewUrls.length}):
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 1 }}>
+                                            {previewUrls.map((url, idx) => (
+                                                <Box
+                                                    key={idx}
+                                                    component="img"
+                                                    src={getImagenSrc(url)}
+                                                    alt={`Imágen ${idx + 1}`}
+                                                    sx={{
+                                                        width: 70,
+                                                        height: 70,
+                                                        borderRadius: '10px',
+                                                        objectFit: 'cover',
+                                                        border: idx === imgActualIndex ? '3px solid #0ea5e9' : '1px solid #cbd5e1',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onClick={() => setImgActualIndex(idx)}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    </Box>
                                 )}
 
-                                <Typography variant="body1" fontWeight="bold" sx={{ mb: 2 }}>
+                                <Typography variant="body1" fontWeight="bold" sx={{ mb: 2, mt: 2 }}>
                                     Categoría Principal
                                 </Typography>
                                 <Form.Item name="categoria">
@@ -406,7 +523,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                             className={`btn-pill ${preview.categoria === "aventura" ? "active" : ""}`}
                                             onClick={() => {
                                                 form.setFieldsValue({ categoria: "aventura", tagsEspeciales: [] });
-                                                setPreview(p => ({ ...p, categoria: "aventura", tagsEspeciales: [] }));
+                                                setPreview((p: any) => ({ ...p, categoria: "aventura", tagsEspeciales: [] }));
                                             }}
                                         >
                                             Aventura / Sitio <LandscapeIcon sx={{ ml: 1, color: "green" }} />
@@ -416,7 +533,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                             className={`btn-pill ${preview.categoria === "restaurante" ? "active" : ""}`}
                                             onClick={() => {
                                                 form.setFieldsValue({ categoria: "restaurante", tagsEspeciales: [] });
-                                                setPreview(p => ({ ...p, categoria: "restaurante", tagsEspeciales: [] }));
+                                                setPreview((p: any) => ({ ...p, categoria: "restaurante", tagsEspeciales: [] }));
                                             }}
                                         >
                                             Restaurante <RestaurantIcon sx={{ ml: 1, color: "orange" }} />
@@ -426,7 +543,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                             className={`btn-pill ${preview.categoria === "hotel" ? "active" : ""}`}
                                             onClick={() => {
                                                 form.setFieldsValue({ categoria: "hotel", tagsEspeciales: [] });
-                                                setPreview(p => ({ ...p, categoria: "hotel", tagsEspeciales: [] }));
+                                                setPreview((p: any) => ({ ...p, categoria: "hotel", tagsEspeciales: [] }));
                                             }}
                                         >
                                             Hotel <HotelIcon sx={{ ml: 1, color: "red" }} />
@@ -434,7 +551,51 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     </Stack>
                                 </Form.Item>
 
-                                {/* 🛡️ SECCIÓN 1: VERIFICACIÓN OFICIAL */}
+                                {/* 🌟 SECCIÓN: FILTROS ESTRUCTURALES PARA IA */}
+                                <Divider sx={{ my: 3 }} />
+                                <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 2, color: "#0284c7" }}>
+                                    🎯 Atributos de Perfilamiento para el Motor de IA
+                                </Typography>
+
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="clima" label={<strong>Clima Predominante</strong>} rules={[{ required: true }]}>
+                                            <Select options={OPCIONES_CLIMA} placeholder="Selecciona el clima" />
+                                        </Form.Item>
+                                    </Grid>
+
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="entorno" label={<strong>Tipo de Entorno</strong>} rules={[{ required: true }]}>
+                                            <Select options={OPCIONES_ENTORNO} placeholder="Selecciona el entorno" />
+                                        </Form.Item>
+                                    </Grid>
+
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="rangoPresupuesto" label={<strong>Categoría de Presupuesto</strong>} rules={[{ required: true }]}>
+                                            <Select options={OPCIONES_PRESUPUESTO} placeholder="Nivel económico" />
+                                        </Form.Item>
+                                    </Grid>
+
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="tipoAcceso" label={<strong>Facilidad de Acceso</strong>} rules={[{ required: true }]}>
+                                            <Select options={OPCIONES_ACCESO} placeholder="Modo de llegada" />
+                                        </Form.Item>
+                                    </Grid>
+
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="ritmo" label={<strong>Ritmo / Exigencia del Plan</strong>} rules={[{ required: true }]}>
+                                            <Select options={OPCIONES_RITMO} placeholder="Ritmo recomendado" />
+                                        </Form.Item>
+                                    </Grid>
+
+                                    <Grid item xs={12} sm={6}>
+                                        <Form.Item name="companiaIdeal" label={<strong>Ideal Para (Compañía)</strong>}>
+                                            <Select mode="multiple" options={OPCIONES_COMPANIA} placeholder="Selecciona opciones" />
+                                        </Form.Item>
+                                    </Grid>
+                                </Grid>
+
+                                {/* 🛡️ SECCIÓN VERIFICACIÓN OFICIAL */}
                                 <Divider sx={{ my: 3 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 2, color: "#0284c7", display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <ShieldIcon color="primary" /> Verificación y Registro Oficial
@@ -485,7 +646,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     )}
                                 </Grid>
 
-                                {/* 🎯 SECCIÓN 2: ETIQUETAS DINÁMICAS SEGÚN CATEGORÍA */}
+                                {/* 🎯 SECCIÓN ETIQUETAS DINÁMICAS */}
                                 <Divider sx={{ my: 2 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 1.5, color: "#0f172a" }}>
                                     {preview.categoria === 'hotel' && '🏨 Comodidades del Alojamiento'}
@@ -499,7 +660,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     />
                                 </Form.Item>
 
-                                {/* 🛠️ SECCIÓN 3: SERVICIOS GENERALES E INCLUSIVIDAD */}
+                                {/* 🛠️ SERVICIOS GENERALES */}
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mt: 2, mb: 1.5, color: "#0f172a" }}>
                                     🛠️ Servicios Generales
                                 </Typography>
@@ -511,31 +672,50 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                 </Form.Item>
 
                                 <Stack direction="row" spacing={4} sx={{ mb: 3, bgcolor: '#f8fafc', p: 2, borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                    <Form.Item name="petFriendly" valuePropName="checked" noStyle>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <PetsIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
-                                            <Typography variant="body2" fontWeight="600">Pet Friendly</Typography>
-                                            <Switch size="small" />
-                                        </Stack>
-                                    </Form.Item>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <PetsIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
+                                        <Typography variant="body2" fontWeight="600">Pet Friendly</Typography>
+                                        <Form.Item name="petFriendly" valuePropName="checked" noStyle>
+                                            <Switch
+                                                size="small"
+                                                onChange={(checked) => setPreview((prev: any) => ({ ...prev, petFriendly: checked }))}
+                                            />
+                                        </Form.Item>
+                                    </Stack>
 
-                                    <Form.Item name="accesibleSillaRuedas" valuePropName="checked" noStyle>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <AccessibleIcon sx={{ color: '#0ea5e9', fontSize: 20 }} />
-                                            <Typography variant="body2" fontWeight="600">Acceso Silla de Ruedas</Typography>
-                                            <Switch size="small" />
-                                        </Stack>
-                                    </Form.Item>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <AccessibleIcon sx={{ color: '#0ea5e9', fontSize: 20 }} />
+                                        <Typography variant="body2" fontWeight="600">Acceso Silla de Ruedas</Typography>
+                                        <Form.Item name="accesibleSillaRuedas" valuePropName="checked" noStyle>
+                                            <Switch
+                                                size="small"
+                                                onChange={(checked) => setPreview((prev: any) => ({ ...prev, accesibleSillaRuedas: checked }))}
+                                            />
+                                        </Form.Item>
+                                    </Stack>
                                 </Stack>
 
-                                {/* 📋 SECCIÓN 4: INFORMACIÓN DE UBICACIÓN Y PRESUPUESTO */}
+                                {/* 📋 UBICACIÓN Y PRESUPUESTO */}
                                 <Divider sx={{ my: 3 }} />
                                 <Grid container spacing={2}>
+
+                                    {/* 📍 DESPLEGABLE DE CIUDAD/MUNICIPIO CON BÚSQUEDA Y REDIRECCIÓN AL MAPA */}
                                     <Grid item xs={6}>
                                         <Form.Item name="ciudad" label={<strong>Ciudad / Municipio</strong>}>
-                                            <Input placeholder="Cali, Colombia" prefix={<MapIcon sx={{ fontSize: 18 }} />} />
+                                            <Select
+                                                showSearch
+                                                allowClear
+                                                loading={cargandoCiudades}
+                                                placeholder="Busca un municipio..."
+                                                options={listaCiudades}
+                                                onChange={handleSeleccionarCiudad}
+                                                filterOption={(input, option) =>
+                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                            />
                                         </Form.Item>
                                     </Grid>
+
                                     <Grid item xs={6}>
                                         <Form.Item name="minimo" label={<strong>{esHotelORestaurante ? (preview.categoria === "hotel" ? "Precio Promedio Noche" : "Precio Promedio Plato") : "Presupuesto Sugerido (Mínimo)"}</strong>}>
                                             <InputNumber style={{ width: '100%' }} prefix="$" />
@@ -543,7 +723,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     </Grid>
                                 </Grid>
 
-                                {/* 📞 SECCIÓN 5: ESPECÍFICO SEGÚN TIPO DE LUGAR */}
                                 <Grid container spacing={2}>
                                     {esAventura && (
                                         <Grid item xs={12} sm={6}>
@@ -576,6 +755,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
 
                                 {userLocation != null &&
                                     <MapaUbicacion
+                                        key={mapKey}
                                         lat={userLocation?.lat || 0}
                                         lng={userLocation?.lng || 0}
                                         nombre=""
@@ -584,7 +764,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                 }
 
                             </Form>
-                            {/* 🔘 BOTONES DE ACCIÓN SEGÚN MODO */}
                             <Box sx={{ mt: 3 }}>
                                 {modo === 'aprobar' ? (
                                     <Stack direction="row" spacing={2}>
@@ -645,7 +824,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     bgcolor: "#ffffff"
                                 }}
                             >
-                                {/* CARRUSEL DE IMÁGENES CON SOPORTE DE BASE64 */}
                                 <Box sx={{ position: "relative", height: "240px", overflow: "hidden" }}>
                                     <img
                                         src={previewUrls.length > 0 ? getImagenSrc(previewUrls[imgActualIndex]) : BannerImg}
@@ -653,7 +831,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                     />
 
-                                    {/* Insignias Flotantes en la Imagen */}
                                     <Stack direction="row" spacing={1} sx={{ position: "absolute", top: 14, right: 14 }}>
                                         {preview.rnt && esAventura && (
                                             <Chip
@@ -678,7 +855,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         />
                                     </Stack>
 
-                                    {/* Insignia Categoría */}
                                     <Chip
                                         icon={catBadge.icon}
                                         label={catBadge.label}
@@ -694,7 +870,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         }}
                                     />
 
-                                    {/* Flechas del Carrusel */}
                                     {previewUrls.length > 1 && (
                                         <>
                                             <IconButton onClick={handlePrevFoto} size="small" sx={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", bgcolor: "rgba(255,255,255,0.85)" }}>
@@ -714,7 +889,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     )}
                                 </Box>
 
-                                {/* DETALLES DEL DESTINO EN VISTA PREVIA */}
                                 <Box sx={{ p: 3.5 }}>
                                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
                                         <Stack direction="row" alignItems="center" spacing={0.5}>
@@ -734,39 +908,56 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         )}
                                     </Stack>
 
-                                    {/* Título */}
                                     <Typography variant="h5" sx={{ fontWeight: "800", color: "#0f172a", fontSize: "1.35rem", mb: 1 }}>
                                         {preview.nombre || "Título del Destino"}
                                     </Typography>
 
-                                    {/* Descripción */}
                                     <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.88rem", mb: 2 }}>
                                         {preview.descripcion || "Aquí aparecerá la descripción que escribas..."}
                                     </Typography>
 
-                                    {/* ETIQUETAS DINÁMICAS EN LA VISTA PREVIA */}
+                                    <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mb: 2 }}>
+                                        {preview.clima && (
+                                            <Chip
+                                                label={obtenerLabelFormateado(preview.clima)}
+                                                size="small"
+                                                sx={{ bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: "700", fontSize: "0.68rem" }}
+                                            />
+                                        )}
+                                        {preview.entorno && (
+                                            <Chip
+                                                label={obtenerLabelFormateado(preview.entorno)}
+                                                size="small"
+                                                sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: "700", fontSize: "0.68rem" }}
+                                            />
+                                        )}
+                                        {preview.tipoAcceso && (
+                                            <Chip
+                                                label={obtenerLabelFormateado(preview.tipoAcceso)}
+                                                size="small"
+                                                sx={{ bgcolor: "#f1f5f9", color: "#334155", fontWeight: "700", fontSize: "0.68rem" }}
+                                            />
+                                        )}
+                                    </Stack>
+
                                     {preview.tagsEspeciales && preview.tagsEspeciales.length > 0 && (
                                         <Box sx={{ mb: 2 }}>
                                             <Typography variant="caption" color="text.secondary" fontWeight="700" display="block" sx={{ mb: 0.5, textTransform: "uppercase" }}>
                                                 {preview.categoria === 'hotel' ? 'COMODIDADES:' : preview.categoria === 'restaurante' ? 'ESPECIALIDAD:' : 'ACTIVIDADES:'}
                                             </Typography>
                                             <Stack direction="row" flexWrap="wrap" gap={0.5}>
-                                                {preview.tagsEspeciales.map((tag) => {
-                                                    const itemOp = opcionesEspeciales.find(o => o.value === tag);
-                                                    return (
-                                                        <Chip
-                                                            key={tag}
-                                                            label={itemOp ? itemOp.label : tag}
-                                                            size="small"
-                                                            sx={{ bgcolor: "#f1f5f9", fontSize: "0.7rem", fontWeight: "600", color: "#334155" }}
-                                                        />
-                                                    );
-                                                })}
+                                                {preview.tagsEspeciales.map((tag: string) => (
+                                                    <Chip
+                                                        key={tag}
+                                                        label={obtenerLabelFormateado(tag)}
+                                                        size="small"
+                                                        sx={{ bgcolor: "#f1f5f9", fontSize: "0.7rem", fontWeight: "600", color: "#334155" }}
+                                                    />
+                                                ))}
                                             </Stack>
                                         </Box>
                                     )}
 
-                                    {/* ATRIBUTOS INCLUSIVOS */}
                                     {(preview.petFriendly || preview.accesibleSillaRuedas) && (
                                         <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                                             {preview.petFriendly && (
@@ -790,7 +981,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
 
                                     <Divider sx={{ my: 2, borderColor: "#f1f5f9" }} />
 
-                                    {/* PRESUPUESTO Y WHATSAPP */}
                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Box>
                                             <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: "600", display: "block" }}>
@@ -804,7 +994,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                             </Typography>
                                         </Box>
 
-                                        {/* WhatsApp condicional con fallback seguro */}
                                         {esHotelORestaurante && Boolean(preview.contactoWhatsapp) && (
                                             <Chip
                                                 icon={<WhatsAppIcon style={{ color: 'white', fontSize: 16 }} />}
@@ -832,7 +1021,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     * Así es como aparecerá tu destino en el buscador principal.
                                 </Typography>
                             </div>
-                            {/* LISTA DE COINCIDENCIAS */}
+
                             {posiblesDuplicados.map(({ lugar, motivo }) => (
                                 <Paper
                                     key={lugar.id}
@@ -849,7 +1038,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                             </Typography>
                                         </Box>
 
-                                        {/* 🔗 Botón que abre el destino existente en pestaña nueva */}
                                         <Button
                                             type="link"
                                             size="small"
@@ -863,7 +1051,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                             ))}
                         </Box>
                     </Grid>
-
                 </Grid>
             </Box>
         </Box>
