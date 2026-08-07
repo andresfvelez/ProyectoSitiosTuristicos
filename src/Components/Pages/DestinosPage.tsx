@@ -19,17 +19,17 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import EditIcon from "@mui/icons-material/Edit";
 import StarIcon from "@mui/icons-material/Star";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // 👈 Añadimos useLocation
 
-import { useAuth } from "../../../auth/AuthProvider";
-import { LugarTuristico } from "../../models/LugarTuristico";
+import { useAuth } from "../../auth/AuthProvider";
+import { LugarTuristico } from "../models/LugarTuristico";
 import {
     obtenerLugares,
     obtenerLugaresPorUsuario,
     obtenerImagenesPorDestino,
     eliminarDestino,
-    reportarLugar
-} from "../../../services/lugaresService";
+    obtenerFavoritosPorUsuario // 👈 Importamos la función de favoritos
+} from "../../services/lugaresService";
 
 
 import {
@@ -38,10 +38,10 @@ import {
     OPCIONES_PRESUPUESTO,
     OPCIONES_ACCESO,
     OPCIONES_RITMO
-} from "../../models/OpcionesDestinos";
+} from "../models/OpcionesDestinos";
 
-import BannerImg from "../../../Layouts/Images/Banner.png";
-import {obtenerCiudadesColombia} from "../../../services/ApiServices";
+import BannerImg from "../../Layouts/Images/Banner.png";
+import { obtenerCiudadesColombia } from "../../services/ApiServices";
 
 // Helper para interpretar formato de imagen
 const getImagenSrc = (src?: string | null) => {
@@ -232,6 +232,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
 // 🏛️ PÁGINA PRINCIPAL
 export default function DestinosPage() {
     const { usuario, rol } = useAuth();
+    const location = useLocation();
 
     const [tabActiva, setTabActiva] = useState<string>("1");
     const [busqueda, setBusqueda] = useState<string>("");
@@ -254,8 +255,20 @@ export default function DestinosPage() {
     const [filtroAcceso, setFiltroAcceso] = useState<string | null>(null);
     const [filtroRitmo, setFiltroRitmo] = useState<string | null>(null);
 
+    // ESTADOS DE LISTAS
     const [todosLosLugares, setTodosLosLugares] = useState<LugarTuristico[]>([]);
     const [misLugares, setMisLugares] = useState<LugarTuristico[]>([]);
+    const [misFavoritos, setMisFavoritos] = useState<LugarTuristico[]>([]); // 👈 Estado para Favoritos
+
+    //Autodireccionar a la pestaña de favoritos, una vez realizado se pierde el estado
+    useEffect(() => {
+        if (location.state && location.state.tabActiva) {
+            setTabActiva(location.state.tabActiva);
+
+            // Limpia el historial para que si el usuario recarga con F5 vuelva a la Tab 1
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     const cargarData = async () => {
         setCargando(true);
@@ -265,6 +278,9 @@ export default function DestinosPage() {
         if (usuario?.uid) {
             const propios = await obtenerLugaresPorUsuario(usuario.uid);
             setMisLugares(propios);
+
+            const favoritos = await obtenerFavoritosPorUsuario(usuario.uid); // 👈 Carga de Favoritos
+            setMisFavoritos(favoritos);
         }
 
         setCargando(false);
@@ -360,9 +376,15 @@ export default function DestinosPage() {
         setFiltroRitmo(null);
     };
 
-    const listaFiltrada = tabActiva === "1"
-        ? filtrarLista(todosLosLugares)
-        : filtrarLista(misLugares);
+    // 👈 Selección de lista base en función del Tab
+    const getListaBase = () => {
+        if (tabActiva === "1") return todosLosLugares;
+        if (tabActiva === "2") return misLugares;
+        if (tabActiva === "3") return misFavoritos;
+        return [];
+    };
+
+    const listaFiltrada = filtrarLista(getListaBase());
 
     // CÁLCULO DE ELEMENTOS PARA LA PÁGINA ACTUAL
     const inicioIndex = (paginaActual - 1) * elementosPorPagina;
@@ -567,7 +589,7 @@ export default function DestinosPage() {
                 </Grid>
             </Paper>
 
-            {/* PESTAÑAS */}
+            {/* 👈 PESTAÑAS CONDICIONALES */}
             <Tabs
                 activeKey={tabActiva}
                 onChange={setTabActiva}
@@ -580,6 +602,10 @@ export default function DestinosPage() {
                     ...(usuario ? [{
                         key: "2",
                         label: `👤 Mis Destinos Publicados (${misLugares.length})`,
+                    }] : []),
+                    ...(usuario && misFavoritos.length > 0 ? [{
+                        key: "3",
+                        label: `❤️ Favoritos (${misFavoritos.length})`,
                     }] : [])
                 ]}
             />
@@ -596,7 +622,9 @@ export default function DestinosPage() {
                             description={
                                 tabActiva === "2"
                                     ? "Aún no has publicado ningún destino."
-                                    : "No se encontraron destinos que coincidan con los filtros seleccionados."
+                                    : tabActiva === "3"
+                                        ? "No se encontraron favoritos con estos filtros."
+                                        : "No se encontraron destinos que coincidan con los filtros seleccionados."
                             }
                         />
                     </Box>

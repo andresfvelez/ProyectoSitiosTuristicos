@@ -344,11 +344,11 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             await confirmarDestino(datosIniciales.id);
             message.success("¡Destino aprobado y publicado correctamente!");
             if (onExito) onExito();
-            navigate('/admin-panel');
+            navigate('/admin/pendientes');
         } catch (error) {
             console.error(error);
             message.error("Error al aprobar el destino");
-            navigate('/admin-panel');
+            navigate('/admin/pendientes');
         } finally {
             setCargando(false);
         }

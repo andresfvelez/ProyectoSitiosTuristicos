@@ -13,10 +13,11 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
 import Logout from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { EstadoConexion } from "./EstadoConexion";
 import { DEFAULT_AVATAR } from './Images/defaulAvatar';
-
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import FlagIcon from '@mui/icons-material/Flag';
+import BuildIcon from '@mui/icons-material/Build';
 interface HeaderProps {
     sections: ReadonlyArray<{ title: string; url: string; }>;
     availablePlaces: any[];
@@ -168,7 +169,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                     <span className="badge bg-danger me-1" style={{ fontSize: '0.65rem' }}>ADMIN</span>
 
                                     <RouterLink
-                                        to="/admin-panel"
+                                        to="/admin/pendientes"
                                         className="btn btn-sm btn-warning text-dark fw-bold d-flex align-items-center gap-1"
                                         style={{ borderRadius: '20px', fontSize: '0.8rem' }}
                                     >
@@ -176,19 +177,19 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                     </RouterLink>
 
                                     <RouterLink
-                                        to="/admin/scrapper"
-                                        className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                                        to="/admin/reportes"
+                                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
                                         style={{ borderRadius: '20px', fontSize: '0.8rem' }}
                                     >
-                                        🤖 Scrapper
+                                        🚩 Reportes
                                     </RouterLink>
 
                                     <RouterLink
-                                        to="/admin/reportes"
-                                        className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                                        to="/admin/scrapper"
+                                        className="btn btn-sm btn-outline-info text-dark fw-bold d-flex align-items-center gap-1"
                                         style={{ borderRadius: '20px', fontSize: '0.8rem' }}
                                     >
-                                        📊 Reportes
+                                        🛠️ Scrapper
                                     </RouterLink>
                                 </li>
                             )}
@@ -271,12 +272,28 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </MenuItem>
 
                         {rol === 'administrador' && (
-                            <MenuItem component={RouterLink} to="/admin-panel">
-                                <ListItemIcon>
-                                    <AdminPanelSettingsIcon fontSize="small" color="primary" />
-                                </ListItemIcon>
-                                Panel de Control Admin
-                            </MenuItem>
+                            <>
+                                <MenuItem component={RouterLink} to="/admin/pendientes">
+                                    <ListItemIcon>
+                                        <HourglassTopIcon fontSize="small" color="warning" />
+                                    </ListItemIcon>
+                                    Destinos Pendientes
+                                </MenuItem>
+
+                                <MenuItem component={RouterLink} to="/admin/reportes">
+                                    <ListItemIcon>
+                                        <FlagIcon fontSize="small" color="error" />
+                                    </ListItemIcon>
+                                    Reportes
+                                </MenuItem>
+
+                                <MenuItem component={RouterLink} to="/admin/scrapper">
+                                    <ListItemIcon>
+                                        <BuildIcon fontSize="small" color="primary" />
+                                    </ListItemIcon>
+                                    Scrapper / Migrador
+                                </MenuItem>
+                            </>
                         )}
                         <Divider />
 

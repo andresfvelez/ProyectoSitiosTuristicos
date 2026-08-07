@@ -17,9 +17,11 @@ import {AuthProvider} from "./auth/AuthProvider";
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import EditarDestino from "./Components/Pages/EditarDestino";
 import AprobarDestinos from "./Components/Pages/AprobarDestinos";
-import DestinosPage from "./Components/Pages/styles/DestinosPage";
+import DestinosPage from "./Components/Pages/DestinosPage";
 import Reportes from "./Components/Pages/Reportes";
 import {RecaptchaMarca} from "./Components/Pages/Seccions/RecaptchaMarca";
+import {ScrollToTop} from "./Layouts/Utils/ScrollTop";
+import ScrapperMejorado from "./Components/Pages/ScrapperMejorado";
 const { Content } = Layout;
 
 // Rutas
@@ -60,6 +62,7 @@ function App() {
     return (
         <AuthProvider>
         <BrowserRouter>
+            <ScrollToTop />
             <Suspense
                 fallback={
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -96,8 +99,9 @@ function App() {
                         </Route>
 
                         <Route element={<ProtectedRoute rolesPermitidos={['administrador']} />}>
-                            <Route path="/admin-panel" element={<AprobarDestinos />} />
+                            <Route path="/admin/pendientes" element={<AprobarDestinos />} />
                             <Route path="/admin/reportes" element={<Reportes />} />
+                            <Route path="/admin/scrapper" element={<ScrapperMejorado />} />
                         </Route>
                         </Routes>
                     </Content>
