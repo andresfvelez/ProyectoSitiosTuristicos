@@ -80,6 +80,28 @@ export const obtenerImagenesPorDestino = async (idDestino: string): Promise<stri
   }
 };
 
+export const obtenerFavoritosPorUsuario = async (usuarioId: string): Promise<LugarTuristico[]> => {
+  try {
+    const q = query(
+        collection(db, "favoritos"),
+        where("usuarioId", "==", usuarioId)
+    );
+    const snapshot = await getDocs(q);
+    const favDocs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() as { lugarId: string; fecha: number } }));
+
+    // Ordenar por fecha de guardado (más recientes primero)
+    favDocs.sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+
+    // Obtener información de cada lugar
+    const lugaresPromises = favDocs.map(fav => obtenerLugarPorId(fav.lugarId));
+    const lugares = await Promise.all(lugaresPromises);
+
+    return lugares.filter((l): l is LugarTuristico => l !== null);
+  } catch (error) {
+    console.error("Error al obtener favoritos del usuario:", error);
+    return [];
+  }
+};
 
 export const obtenerLugaresPorUsuario = async (usuarioId: string): Promise<LugarTuristico[]> => {
   try {

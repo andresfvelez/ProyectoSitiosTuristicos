@@ -17,8 +17,9 @@ import {AuthProvider} from "./auth/AuthProvider";
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import EditarDestino from "./Components/Pages/EditarDestino";
 import AprobarDestinos from "./Components/Pages/AprobarDestinos";
-import DestinosPage from "./Components/Pages/Seccions/DestinosPage";
+import DestinosPage from "./Components/Pages/styles/DestinosPage";
 import Reportes from "./Components/Pages/Reportes";
+import {RecaptchaMarca} from "./Components/Pages/Seccions/RecaptchaMarca";
 const { Content } = Layout;
 
 // Rutas
@@ -103,7 +104,7 @@ function App() {
 
                     {/* Usamos el Footer que tenías importado */}
                     <FooterComponent />
-
+                    <RecaptchaMarca />
                 </Layout>
             </Suspense>
         </BrowserRouter>

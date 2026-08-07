@@ -20,7 +20,7 @@ import {
   obtenerLugarPorId,
   obtenerLugares,
   agregarOpinionLugar,
-  reportarLugar // 👈 Importamos la nueva función
+  reportarLugar
 } from "../../services/lugaresService";
 
 // Icons
@@ -35,11 +35,13 @@ import LuggageIcon from '@mui/icons-material/Luggage';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import LandscapeIcon from '@mui/icons-material/Landscape';
-import FlagIcon from '@mui/icons-material/Flag'; // 👈 Icono de bandera para reportar
+import FlagIcon from '@mui/icons-material/Flag';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 // Ant Design Components
 import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
-import {imgPerfil} from "../../Layouts/Images/imagenPerfilPrueba";
+import { imgPerfil } from "../../Layouts/Images/imagenPerfilPrueba";
 
 // Local Assets & Components
 import BannerImg from "../../Layouts/Images/Banner.png";
@@ -49,11 +51,12 @@ import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
-import {LugarTuristico, Opinion} from "../models/LugarTuristico";
+import { LugarTuristico, Opinion } from "../models/LugarTuristico";
 import SeccionComentarios from "./Seccions/Comments";
-import {obtenerLabelFormateado} from "../models/OpcionesDestinos";
-import {calcularDistanciaKm} from "../../services/ValidacionLugar";
-import {useAuth} from "../../auth/AuthProvider";
+import { obtenerLabelFormateado } from "../models/OpcionesDestinos";
+import { calcularDistanciaKm } from "../../services/ValidacionLugar";
+import { useAuth } from "../../auth/AuthProvider";
+import {eliminarFavorito, guardarFavorito, verificarEsFavorito} from "../../services/usuariosService";
 
 const Pagina2 = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +64,7 @@ const Pagina2 = () => {
   const [form] = Form.useForm<any>();
   const { usuario, rol } = useAuth();
 
-  // Estados
+  // Estados generales
   const [activeTab, setActiveTab] = useState<string>("");
   const [showlocalizacion, setshowlocalizacion] = useState<boolean>(false);
   const [cargando, setCargando] = useState<boolean>(true);
@@ -74,6 +77,10 @@ const Pagina2 = () => {
   const [modalReporte, setModalReporte] = useState<boolean>(false);
   const [motivoReporte, setMotivoReporte] = useState<string>("");
   const [enviandoReporte, setEnviandoReporte] = useState<boolean>(false);
+
+  // ❤️ Estados para Favoritos
+  const [esFavorito, setEsFavorito] = useState<boolean>(false);
+  const [procesandoFavorito, setProcesandoFavorito] = useState<boolean>(false);
 
   // Manejador del flujo de reporte
   const handleAbrirModalReporte = () => {
@@ -106,7 +113,40 @@ const Pagina2 = () => {
     }
   };
 
-  // Carga de datos
+  // ❤️ Manejador para alternar Favorito
+  const handleToggleFavorito = async () => {
+    if (!usuario) {
+      message.warning("Debes iniciar sesión para guardar en favoritos.");
+      navigate("/login");
+      return;
+    }
+
+    if (!info?.id || procesandoFavorito) return;
+
+    setProcesandoFavorito(true);
+
+    if (esFavorito) {
+      const exito = await eliminarFavorito(info.id, usuario.uid);
+      if (exito) {
+        setEsFavorito(false);
+        message.info("Se ha quitado el destino de tus favoritos.");
+      } else {
+        message.error("No se pudo quitar de favoritos.");
+      }
+    } else {
+      const exito = await guardarFavorito(info.id, usuario.uid);
+      if (exito) {
+        setEsFavorito(true);
+        message.success("¡Guardado en tus favoritos!");
+      } else {
+        message.error("No se pudo guardar en favoritos.");
+      }
+    }
+
+    setProcesandoFavorito(false);
+  };
+
+  // Carga de datos del sitio
   const cargarLugar = useCallback(async () => {
     if (!id) {
       console.error("No se proporcionó un ID en la URL");
@@ -117,6 +157,11 @@ const Pagina2 = () => {
     setCargando(true);
     const destino = await obtenerLugarPorId(id);
     setinfo(destino);
+
+    if (destino && usuario?.uid && id) {
+      const fav = await verificarEsFavorito(id, usuario.uid);
+      setEsFavorito(fav);
+    }
 
     if (destino && destino.latitud && destino.longitud) {
       const todosLosLugares = await obtenerLugares();
@@ -145,7 +190,7 @@ const Pagina2 = () => {
     }
 
     setCargando(false);
-  }, [id]);
+  }, [id, usuario?.uid]);
 
   useEffect(() => {
     cargarLugar();
@@ -250,25 +295,46 @@ const Pagina2 = () => {
               {/* COLUMNA IZQUIERDA */}
               <Grid item xs={12} md={7}>
 
-                {/* ENCABEZADO: TITULO + BOTÓN DE REPORTE */}
+                {/* ENCABEZADO: TÍTULO + FAVORITOS + REPORTE */}
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
                   <Typography variant="h4" fontWeight="800">
                     {info?.nombre}
                   </Typography>
 
-                  {/* 🚩 BOTÓN DE REPORTAR */}
-                  <IconButton
-                      onClick={handleAbrirModalReporte}
-                      title="Reportar sitio"
-                      sx={{
-                        color: "#ef4444",
-                        border: "1px solid #fecaca",
-                        bgcolor: "#fef2f2",
-                        "&:hover": { bgcolor: "#fee2e2" }
-                      }}
-                  >
-                    <FlagIcon fontSize="small" />
-                  </IconButton>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    {/* ❤️ BOTÓN DE FAVORITOS (Visibilidad para usuarios registrados) */}
+                    {usuario && (
+                        <IconButton
+                            onClick={handleToggleFavorito}
+                            disabled={procesandoFavorito}
+                            title={esFavorito ? "Quitar de favoritos" : "Guardar en favoritos"}
+                            sx={{
+                              color: esFavorito ? "#ef4444" : "#94a3b8",
+                              border: esFavorito ? "1px solid #fecaca" : "1px solid #cbd5e1",
+                              bgcolor: esFavorito ? "#fef2f2" : "#ffffff",
+                              "&:hover": { bgcolor: esFavorito ? "#fee2e2" : "#f1f5f9" }
+                            }}
+                        >
+                          {esFavorito ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                        </IconButton>
+                    )}
+
+                    {/* 🚩 BOTÓN DE REPORTAR (Solo visible si hay usuario logueado) */}
+                    {usuario && (
+                        <IconButton
+                            onClick={handleAbrirModalReporte}
+                            title="Reportar sitio"
+                            sx={{
+                              color: "#ef4444",
+                              border: "1px solid #fecaca",
+                              bgcolor: "#fef2f2",
+                              "&:hover": { bgcolor: "#fee2e2" }
+                            }}
+                        >
+                          <FlagIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                  </Stack>
                 </Stack>
 
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>

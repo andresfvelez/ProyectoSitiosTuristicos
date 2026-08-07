@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import { Box, Typography, IconButton, Avatar } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -8,6 +8,7 @@ interface SelectorImagenesProps {
     cantidad?: number;
     label?: string;
     esPerfil?: boolean;
+    imagenInicial?: string | null;
     onFilesChange: (files: File[]) => void;
 }
 
@@ -16,10 +17,18 @@ const SelectorImagenes = ({
                               cantidad = 1,
                               label = "Subir Imagen",
                               esPerfil = false,
+                              imagenInicial = null,
                               onFilesChange
                           }: SelectorImagenesProps) => {
     const [previews, setPreviews] = useState<string[]>([]);
     const [archivos, setArchivos] = useState<File[]>([]);
+
+    useEffect(() => {
+        if (imagenInicial && archivos.length === 0) {
+            setPreviews([imagenInicial]);
+        }
+    }, [imagenInicial]);
+
 
     const manejarSeleccion = (e: React.ChangeEvent<HTMLInputElement>) => {
         const fileList = e.target.files;

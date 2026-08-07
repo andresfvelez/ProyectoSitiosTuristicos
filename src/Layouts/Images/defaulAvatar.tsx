@@ -1,0 +1,1 @@
+export const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'><circle cx='64' cy='64' r='64' fill='%23f1f5f9'/><circle cx='64' cy='48' r='24' fill='%231976d2'/><path d='M104 112c0-22.1-17.9-40-40-40s-40 17.9-40 40' fill='%231976d2'/></svg>";

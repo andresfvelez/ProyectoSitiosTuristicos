@@ -52,7 +52,7 @@ import {
     OPCIONES_SERVICIOS,
     obtenerLabelFormateado
 } from "../models/OpcionesDestinos";
-import {obtenerCiudadesColombia} from "../../services/ApiServices";
+import { obtenerCiudadesColombia } from "../../services/ApiServices";
 
 interface FormularioDestinoProps {
     modo: 'crear' | 'editar' | 'aprobar';
@@ -66,6 +66,9 @@ message.config({
     duration: 3,
     maxCount: 3,
 });
+
+const normalizarTexto = (texto: string) =>
+    texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                                         modo,
@@ -85,7 +88,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     const [posiblesDuplicados, setPosiblesDuplicados] = useState<{ lugar: LugarTuristico; motivo: string }[]>([]);
     const [cargandoDuplicados, setCargandoDuplicados] = useState<boolean>(false);
 
-    // 🌟 ESTADOS PARA LA GESTIÓN INDEPENDIENTE DE CIUDADES Y MAPA
     const [listaCiudades, setListaCiudades] = useState<{ label: string; value: string }[]>([]);
     const [cargandoCiudades, setCargandoCiudades] = useState<boolean>(false);
     const [nombreMapaTemp, setNombreMapaTemp] = useState<string>(datosIniciales?.ciudad || "");
@@ -128,7 +130,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         return `data:image/png;base64,${src}`;
     };
 
-    // 1. CÓDIGO PARA CARGAR CIUDADES DESDE API COLOMBIA
     useEffect(() => {
         const fetchCiudades = async () => {
             setCargandoCiudades(true);
@@ -140,7 +141,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         fetchCiudades();
     }, []);
 
-    // 2. CARGA Y PARSEO DE DATOS INICIALES DESDE FIREBASE
     useEffect(() => {
         if (datosIniciales) {
             const isPetFriendly = datosIniciales.petFriendly === true || (datosIniciales as any).petFriendly === "true";
@@ -228,13 +228,11 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         setImgActualIndex((prev) => (prev === previewUrls.length - 1 ? 0 : prev + 1));
     };
 
-    // 📍 3. ACCIÓN AL MOVER EL MAPA: REGISTRA EN VARIABLE TEMPORAL SIN BORRAR EL CAMPO CIUDAD
     const handleMapUpdate = (lat: number, lng: number, nombre: string) => {
         if (modo === 'aprobar') return;
         setUserLocation({ lat, lng });
-        setNombreMapaTemp(nombre); // 👈 Registra el nombre dado por el mapa en la variable temporal
+        setNombreMapaTemp(nombre);
 
-        // Actualizamos la previsualización respetando la casilla si existe
         const ciudadCasilla = form.getFieldValue('ciudad');
         setPreview((prev: any) => ({
             ...prev,
@@ -244,18 +242,15 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         }));
     };
 
-    // 📍 4. ACCIÓN AL SELECCIONAR CIUDAD EN EL DROPDOWN: REDIRECCIONA EL MAPA
     const handleSeleccionarCiudad = async (ciudadNombre: string) => {
         form.setFieldsValue({ ciudad: ciudadNombre });
         setPreview((prev: any) => ({ ...prev, ciudad: ciudadNombre }));
 
         if (!ciudadNombre) return;
 
-        // Mensaje de carga para mejorar la experiencia de usuario
         const hideLoading = message.loading(`Buscando ${ciudadNombre} en el mapa...`, 0);
 
         try {
-            // Geocodificación para buscar las coordenadas
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(ciudadNombre)},Colombia`);
             if (res.ok) {
                 const data = await res.json();
@@ -263,11 +258,8 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                     const newLat = parseFloat(data[0].lat);
                     const newLng = parseFloat(data[0].lon);
 
-                    // Actualizamos coordenadas
                     setUserLocation({ lat: newLat, lng: newLng });
                     setPreview((prev: any) => ({ ...prev, latitud: newLat, longitud: newLng }));
-
-                    // 👈 ESTO FUERZA AL MAPA A SALTAR A LA NUEVA UBICACIÓN
                     setMapKey(Date.now());
 
                     hideLoading();
@@ -283,7 +275,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             message.error("Hubo un error al conectar con el mapa.");
         }
     };
-    // 💾 5. GUARDAR O EDITAR DESTINO CON PRIORIDAD DE NOMBRE
+
     const onFinish = async () => {
         try {
             const values = await form.validateFields();
@@ -296,9 +288,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                 return message.warning("Sube al menos una foto del destino");
             }
 
-            // 🌟 LÓGICA DE PRIORIDAD PARA EL NOMBRE DE LA CIUDAD
-            // Prioridad 1: Casilla de Ciudad/Municipio
-            // Prioridad 2: Variable temporal obtenida del mapa
             const ciudadFinal = values.ciudad?.trim()
                 ? values.ciudad.trim()
                 : (nombreMapaTemp.trim() || "Colombia");
@@ -325,7 +314,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                 await guardarDestino(
                     datosLimpios,
                     fotosLugar,
-                    userLocation, // 👈 Las coordenadas siempre son las del puntero actual
+                    userLocation,
                     usuarioActualId
                 );
                 message.success("¡Destino guardado y enviado a revisión correctamente!");
@@ -588,14 +577,32 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         </Form.Item>
                                     </Grid>
 
+                                    {/* 📌 CAMPO COMPAÑÍA IDEAL: ANTD NATIVO CON CHECKBOXES DENTRO DE CADA OPCIÓN */}
                                     <Grid item xs={12} sm={6}>
                                         <Form.Item name="companiaIdeal" label={<strong>Ideal Para (Compañía)</strong>}>
-                                            <Select mode="multiple" options={OPCIONES_COMPANIA} placeholder="Selecciona opciones" />
+                                            <Select
+                                                mode="multiple"
+                                                placeholder="Selecciona opciones"
+                                                style={{ width: '100%' }}
+                                                optionLabelProp="label" // 👈 Muestra solo el texto limpio en las etiquetas seleccionadas
+                                            >
+                                                {OPCIONES_COMPANIA.map((item) => {
+                                                    const seleccionados: string[] = form.getFieldValue('companiaIdeal') || [];
+                                                    const estaSeleccionado = seleccionados.includes(item.value);
+                                                    return (
+                                                        <Select.Option key={item.value} value={item.value} label={item.label}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <Checkbox checked={estaSeleccionado} />
+                                                                <span>{item.label}</span>
+                                                            </div>
+                                                        </Select.Option>
+                                                    );
+                                                })}
+                                            </Select>
                                         </Form.Item>
                                     </Grid>
                                 </Grid>
 
-                                {/* 🛡️ SECCIÓN VERIFICACIÓN OFICIAL */}
                                 <Divider sx={{ my: 3 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 2, color: "#0284c7", display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <ShieldIcon color="primary" /> Verificación y Registro Oficial
@@ -646,7 +653,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     )}
                                 </Grid>
 
-                                {/* 🎯 SECCIÓN ETIQUETAS DINÁMICAS */}
                                 <Divider sx={{ my: 2 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 1.5, color: "#0f172a" }}>
                                     {preview.categoria === 'hotel' && '🏨 Comodidades del Alojamiento'}
@@ -660,7 +666,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     />
                                 </Form.Item>
 
-                                {/* 🛠️ SERVICIOS GENERALES */}
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mt: 2, mb: 1.5, color: "#0f172a" }}>
                                     🛠️ Servicios Generales
                                 </Typography>
@@ -695,11 +700,8 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     </Stack>
                                 </Stack>
 
-                                {/* 📋 UBICACIÓN Y PRESUPUESTO */}
                                 <Divider sx={{ my: 3 }} />
                                 <Grid container spacing={2}>
-
-                                    {/* 📍 DESPLEGABLE DE CIUDAD/MUNICIPIO CON BÚSQUEDA Y REDIRECCIÓN AL MAPA */}
                                     <Grid item xs={6}>
                                         <Form.Item name="ciudad" label={<strong>Ciudad / Municipio</strong>}>
                                             <Select
@@ -709,9 +711,13 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                 placeholder="Busca un municipio..."
                                                 options={listaCiudades}
                                                 onChange={handleSeleccionarCiudad}
-                                                filterOption={(input, option) =>
-                                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                }
+                                                filterOption={(input, option) => {
+                                                    if (!input) return true;
+                                                    const inputNormal = normalizarTexto(input);
+                                                    const labelNormal = normalizarTexto(String(option?.label ?? ''));
+                                                    const valueNormal = normalizarTexto(String(option?.value ?? ''));
+                                                    return labelNormal.includes(inputNormal) || valueNormal.includes(inputNormal);
+                                                }}
                                             />
                                         </Form.Item>
                                     </Grid>

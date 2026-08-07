@@ -61,6 +61,9 @@ interface TarjetaDestinoProps {
     onBorradoExitoso: () => void;
 }
 
+const normalizarTexto = (texto: string) =>
+    texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 // 🎴 COMPONENTE INDIVIDUAL DE TARJETA
 const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
                                                            lugar,
@@ -452,9 +455,13 @@ export default function DestinosPage() {
                             style={{ width: "100%", height: "44px" }}
                             size="large"
                             options={opcionesCiudades}
-                            filterOption={(input, option) =>
-                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
+                            filterOption={(input, option) => {
+                                if (!input) return true;
+                                const inputNormal = normalizarTexto(input);
+                                const labelNormal = normalizarTexto(String(option?.label ?? ''));
+                                const valueNormal = normalizarTexto(String(option?.value ?? ''));
+                                return labelNormal.includes(inputNormal) || valueNormal.includes(inputNormal);
+                            }}
                         />
                     </Grid>
 
