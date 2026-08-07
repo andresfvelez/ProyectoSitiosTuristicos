@@ -1,4 +1,16 @@
-import {collection, getDocs, addDoc, query, where, doc, getDoc, updateDoc, deleteDoc, setDoc} from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  where,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  setDoc,
+  writeBatch
+} from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import {LugarTuristico, Opinion} from '../Components/models/LugarTuristico';
 
@@ -45,7 +57,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
         puntuacion: puntuacionCalculada   // 👈 Promedio actualizado
       } as LugarTuristico;
     });
-    return todosLosLugares.filter(lugar => lugar.confirmado !== false);
+    return todosLosLugares.filter(lugar => lugar.confirmado == true);
   } catch (error) {
     console.error("Error obteniendo lugares:", error);
     return [];
@@ -342,7 +354,153 @@ export const reportarLugar = async (
     return false;
   }
 };
+export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) => {
+  try {
+    const q = query(collection(db, "reportes"), where("estado", "==", "pendiente"));
+    const snapshot = await getDocs(q);
 
+    const reportesPorLugar: Record<string, any[]> = {};
+
+    snapshot.docs.forEach((docSnap) => {
+      // 🛡️ Casting explícito a 'any' para que TS reconozca la propiedad lugarId
+      const data = docSnap.data() as any;
+      const lugarId = data.lugarId;
+
+      if (lugarId) {
+        if (!reportesPorLugar[lugarId]) {
+          reportesPorLugar[lugarId] = [];
+        }
+        reportesPorLugar[lugarId].push({ id: docSnap.id, ...data });
+      }
+    });
+
+    const lugaresSuperanUmbral = Object.entries(reportesPorLugar).filter(
+        ([_, reportes]) => reportes.length >= umbral
+    );
+
+    const resultados = [];
+
+    for (const [lugarId, reportes] of lugaresSuperanUmbral) {
+      const lugarSnap = await getDoc(doc(db, "lugares_turisticos_scrapped", lugarId));
+      if (lugarSnap.exists()) {
+        resultados.push({
+          lugar: { id: lugarId, ...lugarSnap.data() },
+          reportes: reportes
+        });
+      }
+    }
+
+    return resultados;
+  } catch (error) {
+    console.error("Error obteniendo reportes agrupados:", error);
+    return [];
+  }
+};
+
+// ❌ 2. Desestimar reportes (Pasa a estado 'desestimado' sin borrar)
+export const desestimarReportesLugar = async (lugarId: string) => {
+  try {
+    const batch = writeBatch(db);
+
+    // Restaurar publicación en la plataforma
+    const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
+    batch.update(lugarRef, { confirmado: true });
+
+    // Marcar todos sus reportes como desestimados
+    const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
+    const snapshot = await getDocs(q);
+
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { estado: "desestimado" });
+    });
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error("Error al desestimar reportes:", error);
+    return false;
+  }
+};
+
+// 🛑 3. Dejar en Revisión (Oculta el lugar y cambia reportes a 'en revision')
+export const ponerLugarEnRevision = async (lugarId: string) => {
+  try {
+    const batch = writeBatch(db);
+
+    // A) Ocultar el lugar de la plataforma pública (confirmado = false)
+    const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
+    batch.update(lugarRef, { confirmado: "revision" });
+
+    // B) Cambiar estado de los reportes a "en revision"
+    const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId), where("estado", "==", "pendiente"));
+    const snapshot = await getDocs(q);
+
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { estado: "revision" });
+    });
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error("Error al poner lugar en revisión:", error);
+    return false;
+  }
+};
+
+export const obtenerLugaresEnRevision = async () => {
+  try {
+    // Traemos los lugares cuyo estado sea "revision"
+    const q = query(collection(db, "lugares_turisticos_scrapped"), where("confirmado", "==", "revision"));
+    const snapshot = await getDocs(q);
+
+    const resultados = [];
+
+    for (const docSnap of snapshot.docs) {
+      const lugarId = docSnap.id;
+      const lugarData = docSnap.data();
+
+      // Traer los reportes vinculados que estén "en revision"
+      const qRep = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
+      const repSnap = await getDocs(qRep);
+
+      const reportes = repSnap.docs.map(r => ({ id: r.id, ...r.data() }));
+
+      resultados.push({
+        lugar: { id: lugarId, ...lugarData },
+        reportes: reportes
+      });
+    }
+
+    return resultados;
+  } catch (error) {
+    console.error("Error obteniendo lugares en revision:", error);
+    return [];
+  }
+};
+
+export const darDeBajaLugar = async (lugarId: string) => {
+  try {
+    const batch = writeBatch(db);
+
+    // Cambiar estado a "dado de baja"
+    const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
+    batch.update(lugarRef, { confirmado: "dado de baja" });
+
+    // Marcar reportes como atendidos/cerrados
+    const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
+    const snapshot = await getDocs(q);
+
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { estado: "atendido" });
+    });
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error("Error al dar de baja el lugar:", error);
+    return false;
+  }
+};
 //Eliminar publicacion(usuario creador o admin)
 export const eliminarDestino = async (destinoId: string, usuarioId: string): Promise<boolean> => {
   try {

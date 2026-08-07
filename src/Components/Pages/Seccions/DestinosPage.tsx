@@ -21,15 +21,15 @@ import StarIcon from "@mui/icons-material/Star";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 
-import { useAuth } from "../../auth/AuthProvider";
-import { LugarTuristico } from "../models/LugarTuristico";
+import { useAuth } from "../../../auth/AuthProvider";
+import { LugarTuristico } from "../../models/LugarTuristico";
 import {
     obtenerLugares,
     obtenerLugaresPorUsuario,
     obtenerImagenesPorDestino,
     eliminarDestino,
     reportarLugar
-} from "../../services/lugaresService";
+} from "../../../services/lugaresService";
 
 
 import {
@@ -38,10 +38,10 @@ import {
     OPCIONES_PRESUPUESTO,
     OPCIONES_ACCESO,
     OPCIONES_RITMO
-} from "../models/OpcionesDestinos";
+} from "../../models/OpcionesDestinos";
 
-import BannerImg from "../../Layouts/Images/Banner.png";
-import {obtenerCiudadesColombia} from "../../services/ApiServices";
+import BannerImg from "../../../Layouts/Images/Banner.png";
+import {obtenerCiudadesColombia} from "../../../services/ApiServices";
 
 // Helper para interpretar formato de imagen
 const getImagenSrc = (src?: string | null) => {

@@ -17,7 +17,8 @@ import {AuthProvider} from "./auth/AuthProvider";
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import EditarDestino from "./Components/Pages/EditarDestino";
 import AprobarDestinos from "./Components/Pages/AprobarDestinos";
-import DestinosPage from "./Components/Pages/DestinosPage";
+import DestinosPage from "./Components/Pages/Seccions/DestinosPage";
+import Reportes from "./Components/Pages/Reportes";
 const { Content } = Layout;
 
 // Rutas
@@ -95,6 +96,7 @@ function App() {
 
                         <Route element={<ProtectedRoute rolesPermitidos={['administrador']} />}>
                             <Route path="/admin-panel" element={<AprobarDestinos />} />
+                            <Route path="/admin/reportes" element={<Reportes />} />
                         </Route>
                         </Routes>
                     </Content>
