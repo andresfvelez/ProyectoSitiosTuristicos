@@ -5,13 +5,19 @@ export const mostrarAlerta = ({
                                   text,
                                   html,
                                   icon = 'info',
-                                  confirmButtonText = 'Entendido'
+                                  confirmButtonText = 'Entendido',
+                                  showCloseButton = true,
+                                  allowOutsideClick = true,
+                                  allowEscapeKey = true
                               }: {
     title: string;
     text?: string;
     html?: string;
     icon?: SweetAlertIcon;
     confirmButtonText?: string;
+    showCloseButton?: boolean;
+    allowOutsideClick?: boolean;
+    allowEscapeKey?: boolean;
 }) => {
     return Swal.fire({
         title,
@@ -19,12 +25,14 @@ export const mostrarAlerta = ({
         html,
         icon,
         confirmButtonText,
+        showCloseButton,
+        allowOutsideClick,
+        allowEscapeKey,
         confirmButtonColor: '#1976d2',
         background: '#ffffff',
-        width: '520px', // Formato horizontal alargado
+        width: '520px',
         padding: '1.25rem 1.75rem',
         buttonsStyling: true,
-        showCloseButton: true,
         didOpen: (popup) => {
             // Bordes y sombra modernos
             popup.style.borderRadius = '12px';

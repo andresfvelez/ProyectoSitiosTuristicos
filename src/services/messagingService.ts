@@ -1,5 +1,6 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { doc, updateDoc } from "firebase/firestore";
+import { getIdTokenResult, User } from "firebase/auth";
 import { app, db } from "../firebase/firebaseConfig"; // Tu inicialización de Firebase
 
 const messaging = getMessaging(app);
@@ -40,3 +41,4 @@ export const escucharNotificacionesEnPrimerPlano = () => {
         alert(`[${payload.notification?.title}]: ${payload.notification?.body}`);
     });
 };
+

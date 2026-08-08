@@ -31,9 +31,7 @@ const { Content } = Layout;
 
 const sections = [
   { title: "Destinos", url: "/Destinos" },
-  { title: "Publicar", url: "/Publicar" },
-  { title: "Al Aire Libre", url: "/airelibre" },
-  { title: "Relajacion", url: "/relajacion" },
+  { title: "Publicar", url: "/Publicar" }
 ];
 
 function App() {
