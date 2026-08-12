@@ -57,7 +57,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
         puntuacion: puntuacionCalculada   // 👈 Promedio actualizado
       } as LugarTuristico;
     });
-    return todosLosLugares.filter(lugar => lugar.confirmado == true);
+    return todosLosLugares.filter(lugar => lugar.confirmado == true || lugar.confirmado == null || lugar.confirmado == undefined);
   } catch (error) {
     console.error("Error obteniendo lugares:", error);
     return [];
