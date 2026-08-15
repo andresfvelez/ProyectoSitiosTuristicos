@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "212388302936",
+    "project_id": "sitios-turisticos-tesis",
+    "storage_bucket": "sitios-turisticos-tesis.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:212388302936:android:ba868f94b8efbfdb913a2d",
+        "android_client_info": {
+          "package_name": "com.colexplore.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "212388302936-cea6a0hrerfhkd6g98utuk7bgoik8gct.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.colexplore.app",
+            "certificate_hash": "1441156a3d9c4c9ff25680fdf5b1b9797e966fcd"
+          }
+        },
+        {
+          "client_id": "212388302936-drc74cquj0r94r1iv4ki9nvu4ebkdbr0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATs5vmW7dVfkh2LuK8POnj4JryuO8409Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "212388302936-drc74cquj0r94r1iv4ki9nvu4ebkdbr0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

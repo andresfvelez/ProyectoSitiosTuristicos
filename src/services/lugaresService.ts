@@ -12,38 +12,57 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
-import {LugarTuristico, Opinion} from '../Components/models/LugarTuristico';
+import { LugarTuristico, Opinion } from '../Components/models/LugarTuristico';
 
-
+// 🚀 MEJORA 1: Obtener lugares del catálogo de forma ligera (sin descargar la BD completa de opiniones)
 export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
-  console.log("Obteniendo lugares y opiniones...");
+  console.log("Obteniendo lugares del catálogo...");
 
   try {
-    // PeticionesFirestore
+    const q = query(
+        collection(db, 'lugares_turisticos_scrapped'),
+        where('confirmado', '==', true)
+    );
+    const snapshotLugares = await getDocs(q);
+
+    return snapshotLugares.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        opiniones: [] as Opinion[], // Se leen individualmente al abrir el detalle del lugar
+        puntuacion: data.puntuacion || 0
+      } as LugarTuristico;
+    });
+  } catch (error) {
+    console.error("Error obteniendo lugares:", error);
+    return [];
+  }
+};
+
+// 🤖 MEJORA 2: Función dedicada para la IA (carga masiva de opiniones solo cuando se consulte la IA)
+export const obtenerContextoParaIA = async (): Promise<LugarTuristico[]> => {
+  try {
     const [snapshotLugares, snapshotOpiniones] = await Promise.all([
-      getDocs(collection(db, 'lugares_turisticos_scrapped')),
+      getDocs(query(collection(db, 'lugares_turisticos_scrapped'), where('confirmado', '==', true))),
       getDocs(collection(db, 'opiniones_lugares'))
     ]);
 
-    // Mapeo de  las opiniones por el id del lugar para asociarlas rápido
     const opinionesPorLugar: Record<string, Opinion[]> = {};
 
-    snapshotOpiniones.docs.forEach(doc => {
-      const data = doc.data() as Opinion;
+    snapshotOpiniones.docs.forEach(docSnap => {
+      const data = docSnap.data() as Opinion;
       if (!opinionesPorLugar[data.lugarId]) {
         opinionesPorLugar[data.lugarId] = [];
       }
       opinionesPorLugar[data.lugarId].push(data);
     });
 
-
-    const todosLosLugares = snapshotLugares.docs.map(doc => {
-      const data = doc.data();
-      const lugarId = doc.id;
-
+    return snapshotLugares.docs.map(docSnap => {
+      const data = docSnap.data();
+      const lugarId = docSnap.id;
       const opiniones = opinionesPorLugar[lugarId] || [];
 
-      // Cálculo del promedio dinámico
       let puntuacionCalculada = data.puntuacion || 0;
       if (opiniones.length > 0) {
         const suma = opiniones.reduce((acc, op) => acc + (op.puntuacion || 0), 0);
@@ -53,14 +72,39 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
       return {
         id: lugarId,
         ...data,
-        opiniones: opiniones,             // 👈 Array de objetos Opinion[]
-        puntuacion: puntuacionCalculada   // 👈 Promedio actualizado
+        opiniones,
+        puntuacion: puntuacionCalculada
       } as LugarTuristico;
     });
-    return todosLosLugares.filter(lugar => lugar.confirmado == true || lugar.confirmado == null || lugar.confirmado == undefined);
   } catch (error) {
-    console.error("Error obteniendo lugares:", error);
+    console.error("Error obteniendo contexto para la IA:", error);
     return [];
+  }
+};
+
+// 🛠️ MEJORA 3: Migrador para asignar 'confirmado: true' a registros antiguos que no tengan el campo
+export const migrarDocumentosViejos = async (): Promise<number> => {
+  try {
+    const snapshot = await getDocs(collection(db, 'lugares_turisticos_scrapped'));
+    const batch = writeBatch(db);
+    let contador = 0;
+
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.confirmado === undefined || data.confirmado === null) {
+        batch.update(docSnap.ref, { confirmado: true });
+        contador++;
+      }
+    });
+
+    if (contador > 0) {
+      await batch.commit();
+    }
+
+    return contador;
+  } catch (error) {
+    console.error("Error durante la migración de documentos:", error);
+    throw error;
   }
 };
 
@@ -72,7 +116,6 @@ export const obtenerImagenesPorDestino = async (idDestino: string): Promise<stri
         where("idVinculado", "==", idDestino)
     );
     const querySnapshot = await getDocs(q);
-    // Retornamos solo el string base64 de cada documento encontrado
     return querySnapshot.docs.map(doc => doc.data().base64 as string);
   } catch (error) {
     console.error("Error obteniendo imágenes:", error);
@@ -89,10 +132,8 @@ export const obtenerFavoritosPorUsuario = async (usuarioId: string): Promise<Lug
     const snapshot = await getDocs(q);
     const favDocs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() as { lugarId: string; fecha: number } }));
 
-    // Ordenar por fecha de guardado (más recientes primero)
     favDocs.sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
 
-    // Obtener información de cada lugar
     const lugaresPromises = favDocs.map(fav => obtenerLugarPorId(fav.lugarId));
     const lugares = await Promise.all(lugaresPromises);
 
@@ -121,10 +162,8 @@ export const obtenerLugaresPorUsuario = async (usuarioId: string): Promise<Lugar
   }
 };
 
-
 export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | null> => {
   try {
-    // 1. Obtener el documento del lugar
     const lugarRef = doc(db, 'lugares_turisticos_scrapped', id);
     const lugarSnap = await getDoc(lugarRef);
 
@@ -135,7 +174,6 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
 
     const lugarData = lugarSnap.data();
 
-    // 2. Traer fotos y opiniones en paralelo
     const [snapshotImagenes, snapshotOpiniones] = await Promise.all([
       getDocs(query(collection(db, "imagenes_b64"), where("idVinculado", "==", id))),
       getDocs(query(collection(db, "opiniones_lugares"), where("lugarId", "==", id)))
@@ -144,17 +182,15 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
     const imagenes = snapshotImagenes.docs.map(doc => doc.data().base64 as string);
     const opiniones = snapshotOpiniones.docs.map(doc => doc.data() as Opinion);
 
-    // 3. Calcular la puntuación promedio dinámicamente
     let puntuacionCalculada = lugarData.puntuacion || 0;
     if (opiniones.length > 0) {
       const suma = opiniones.reduce((acc, op) => acc + (op.puntuacion || 0), 0);
       puntuacionCalculada = Number((suma / opiniones.length).toFixed(1));
     }
 
-    // Retorna la estructura garantizando la interfaz unificada LugarTuristico
     return {
       id: lugarSnap.id,
-      ...lugarData, // 👈 Trae automáticamente rnt, tagsEspeciales, petFriendly, etc.
+      ...lugarData,
       imagenes,
       opiniones,
       puntuacion: puntuacionCalculada
@@ -166,8 +202,6 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
   }
 };
 
-
-
 const comprimirImagen = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -178,7 +212,6 @@ const comprimirImagen = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
 
-        // LIMITAMOS A 800px (suficiente para una card de catálogo)
         const MAX_WIDTH = 800;
         let width = img.width;
         let height = img.height;
@@ -193,7 +226,6 @@ const comprimirImagen = (file: File): Promise<string> => {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // CALIDAD 0.4 (40%) - Esto garantiza que pese muy poco
         resolve(canvas.toDataURL('image/jpeg', 0.4));
       };
     };
@@ -207,7 +239,6 @@ export const guardarDestino = async (
     usuarioId: string
 ): Promise<string> => {
   try {
-    // Estructuramos el objeto basándonos directamente en la interfaz LugarTuristico
     const nuevoLugar: Omit<LugarTuristico, 'id'> = {
       nombre: datos.nombre || "",
       descripcion: datos.descripcion || "",
@@ -225,10 +256,8 @@ export const guardarDestino = async (
       fechaRegistro: Date.now(),
       imagenes: [],
 
-      // CAMPOS DE CALIDAD Y ATRIBUTOS
       rnt: datos.rnt || "",
       unescoId: datos.unescoId || "",
-      // Mantiene el arreglo de etiquetas dinámicas (actividades, comodidades o cocina)
       tagsEspeciales: datos.tagsEspeciales || [],
       servicios: datos.servicios || [],
       petFriendly: Boolean(datos.petFriendly),
@@ -237,7 +266,6 @@ export const guardarDestino = async (
       contactoWhatsapp: datos.contactoWhatsapp || "",
       queLlevar: datos.queLlevar || "",
 
-      // CRITERIOS DE FILTRADO Y BÚSQUEDAS
       categoriaPrincipal: datos.categoria || "Cultura",
       perfilUsuario: datos.perfilUsuario || ["Pareja", "Amigos"],
       nivelGasto: Number(datos.nivelGasto) || 2,
@@ -248,15 +276,13 @@ export const guardarDestino = async (
       acceso: datos.acceso || "Vehículo simple"
     };
 
-    // 1. Guardar documento principal en Firestore
     const destinoDoc = await addDoc(collection(db, "lugares_turisticos_scrapped"), nuevoLugar);
     const idDestino = destinoDoc.id;
 
-    // 2. Convertir y guardar cada imagen vinculada en Base64
     const promesasImagenes = archivos
         .filter(f => f !== null)
         .map(async (file) => {
-          const b64Comprimido = await comprimirImagen(file); // Tu función helper existente
+          const b64Comprimido = await comprimirImagen(file);
           return addDoc(collection(db, "imagenes_b64"), {
             idVinculado: idDestino,
             esLugar: true,
@@ -279,14 +305,12 @@ export const agregarOpinionLugar = async (
     nuevaOpinion: Opinion
 ): Promise<boolean> => {
   try {
-    // 1. Guardar la nueva opinión en la colección separada 'opiniones_lugares'
     await addDoc(collection(db, "opiniones_lugares"), {
       ...nuevaOpinion,
-      lugarId: lugarId, // Blindamos que siempre tenga la llave foránea
-      createdAt: Date.now() // Útil por si a futuro quieres ordenar por más recientes
+      lugarId: lugarId,
+      createdAt: Date.now()
     });
 
-    // 2. Traer TODAS las opiniones de este lugar para calcular el promedio real total
     const q = query(collection(db, "opiniones_lugares"), where("lugarId", "==", lugarId));
     const snapshotOpiniones = await getDocs(q);
 
@@ -295,14 +319,12 @@ export const agregarOpinionLugar = async (
       todasLasOpiniones.push(docSnap.data() as Opinion);
     });
 
-    // 3. Recalcular el promedio exacto
     let nuevaPuntuacionMedia = 0;
     if (todasLasOpiniones.length > 0) {
       const suma = todasLasOpiniones.reduce((acc, op) => acc + Number(op.puntuacion || 0), 0);
       nuevaPuntuacionMedia = Number((suma / todasLasOpiniones.length).toFixed(1));
     }
 
-    // 4. Actualizar SOLAMENTE la puntuación en el documento principal del lugar
     const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
     await updateDoc(lugarRef, {
       puntuacion: nuevaPuntuacionMedia
@@ -333,19 +355,16 @@ export const obtenerDestinosPendientes = async (): Promise<LugarTuristico[]> => 
   }
 };
 
-// aprobar publicacion
 export const confirmarDestino = async (id: string): Promise<void> => {
   const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
   await updateDoc(lugarRef, { confirmado: true });
 };
 
-//rechazar publicacion
 export const rechazarDestino = async (id: string): Promise<void> => {
   const lugarRef = doc(db, "lugares_turisticos_scrapped", id);
   await deleteDoc(lugarRef);
 };
 
-// Editar publicacion (Edición por Creador o Admin)
 export const actualizarDestino = async (
     id: string,
     datosActualizados: Partial<LugarTuristico>
@@ -368,7 +387,7 @@ export const reportarLugar = async (
       usuarioId: usuarioId,
       motivo: motivo,
       fecha: Date.now(),
-      estado: "pendiente" // Para revisión de administradores
+      estado: "pendiente"
     });
     return true;
   } catch (error) {
@@ -376,6 +395,7 @@ export const reportarLugar = async (
     return false;
   }
 };
+
 export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) => {
   try {
     const q = query(collection(db, "reportes"), where("estado", "==", "pendiente"));
@@ -384,7 +404,6 @@ export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) =
     const reportesPorLugar: Record<string, any[]> = {};
 
     snapshot.docs.forEach((docSnap) => {
-      // 🛡️ Casting explícito a 'any' para que TS reconozca la propiedad lugarId
       const data = docSnap.data() as any;
       const lugarId = data.lugarId;
 
@@ -419,16 +438,13 @@ export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) =
   }
 };
 
-// ❌ 2. Desestimar reportes (Pasa a estado 'desestimado' sin borrar)
 export const desestimarReportesLugar = async (lugarId: string) => {
   try {
     const batch = writeBatch(db);
 
-    // Restaurar publicación en la plataforma
     const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
     batch.update(lugarRef, { confirmado: true });
 
-    // Marcar todos sus reportes como desestimados
     const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
     const snapshot = await getDocs(q);
 
@@ -444,16 +460,13 @@ export const desestimarReportesLugar = async (lugarId: string) => {
   }
 };
 
-// 🛑 3. Dejar en Revisión (Oculta el lugar y cambia reportes a 'en revision')
 export const ponerLugarEnRevision = async (lugarId: string) => {
   try {
     const batch = writeBatch(db);
 
-    // A) Ocultar el lugar de la plataforma pública (confirmado = false)
     const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
     batch.update(lugarRef, { confirmado: "revision" });
 
-    // B) Cambiar estado de los reportes a "en revision"
     const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId), where("estado", "==", "pendiente"));
     const snapshot = await getDocs(q);
 
@@ -471,7 +484,6 @@ export const ponerLugarEnRevision = async (lugarId: string) => {
 
 export const obtenerLugaresEnRevision = async () => {
   try {
-    // Traemos los lugares cuyo estado sea "revision"
     const q = query(collection(db, "lugares_turisticos_scrapped"), where("confirmado", "==", "revision"));
     const snapshot = await getDocs(q);
 
@@ -481,7 +493,6 @@ export const obtenerLugaresEnRevision = async () => {
       const lugarId = docSnap.id;
       const lugarData = docSnap.data();
 
-      // Traer los reportes vinculados que estén "en revision"
       const qRep = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
       const repSnap = await getDocs(qRep);
 
@@ -504,11 +515,9 @@ export const darDeBajaLugar = async (lugarId: string) => {
   try {
     const batch = writeBatch(db);
 
-    // Cambiar estado a "dado de baja"
     const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
     batch.update(lugarRef, { confirmado: "dado de baja" });
 
-    // Marcar reportes como atendidos/cerrados
     const q = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
     const snapshot = await getDocs(q);
 
@@ -523,12 +532,11 @@ export const darDeBajaLugar = async (lugarId: string) => {
     return false;
   }
 };
-//Eliminar publicacion(usuario creador o admin)
+
 export const eliminarDestino = async (destinoId: string, usuarioId: string): Promise<boolean> => {
   try {
     if (!destinoId) return false;
 
-    //Consulta el documento original antes de eliminarlo
     const docRef = doc(db, "lugares_turisticos_scrapped", destinoId);
     const docSnap = await getDoc(docRef);
 
@@ -539,7 +547,6 @@ export const eliminarDestino = async (destinoId: string, usuarioId: string): Pro
 
     const datosOriginales = docSnap.data();
 
-    // Guardar copia de respaldo en 'destinos_eliminados_auditoria' para temas de auditoria
     const auditRef = doc(db, "destinos_eliminados_auditoria", destinoId);
     await setDoc(auditRef, {
       ...datosOriginales,
@@ -548,7 +555,6 @@ export const eliminarDestino = async (destinoId: string, usuarioId: string): Pro
       eliminadoPor: usuarioId
     });
 
-    //Borrar únicamente el registro de la tabla principal
     await deleteDoc(docRef);
 
     console.log(`✅ Destino ${destinoId} movido a auditoría y borrado del catálogo público.`);

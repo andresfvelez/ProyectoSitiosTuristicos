@@ -13,12 +13,44 @@ import {
 import {
     sendPasswordResetEmail,
     createUserWithEmailAndPassword,
+    GoogleAuthProvider,
+    FacebookAuthProvider,
+    signInWithPopup,
+    signInWithCredential,
     User
 } from "firebase/auth";
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { FacebookLogin } from '@capacitor-community/facebook-login';
 import CryptoJS from "crypto-js";
 import emailjs from "@emailjs/browser";
 import { db, auth } from "../firebase/firebaseConfig";
 import { UserProfileData } from "../Components/models/Usuarios";
+
+// 🌐 Configuración de Proveedores para Web y Móvil
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+const facebookProvider = new FacebookAuthProvider();
+
+
+// 🔐 Validar la vigencia del token JWT (expiración)
+export const validarVigenciaToken = async (usuario: User): Promise<boolean> => {
+    try {
+        const tokenResult = await usuario.getIdTokenResult();
+        const fechaExpiracionTokenMs = new Date(tokenResult.expirationTime).getTime();
+        const ahoraMs = Date.now();
+
+        if (ahoraMs >= fechaExpiracionTokenMs) {
+            await auth.signOut();
+            return false;
+        }
+        return true;
+    } catch (error) {
+        console.error("Error al validar el token JWT:", error);
+        await auth.signOut();
+        return false;
+    }
+};
 
 // 🔐 Auxiliar para desencriptar cadenas AES
 const desencriptarDatos = (data: string, key: string): string => {
@@ -60,11 +92,9 @@ export const registrarNuevoUsuario = async (
     email: string,
     password: string
 ): Promise<User> => {
-    // 1. Crear credenciales en Firebase Auth
     const credenciales = await createUserWithEmailAndPassword(auth, email, password);
     const uid = credenciales.user.uid;
 
-    // 2. Guardar registro inicial en Firestore
     await setDoc(doc(db, "usuarios", uid), {
         fullName,
         email,
@@ -74,7 +104,6 @@ export const registrarNuevoUsuario = async (
         fechaCreacion: Date.now()
     });
 
-    // 3. Notificación por EmailJS (no bloquea si falla el envío)
     try {
         const emailData = await obtenerMessagingData();
         if (emailData) {
@@ -97,7 +126,7 @@ export const registrarNuevoUsuario = async (
     return credenciales.user;
 };
 
-// 📧 Enviar correo de recuperación verificando si la cuenta proviene de Google
+// 📧 Enviar correo de recuperación verificando si la cuenta proviene de Google/Facebook
 export const enviarCorreoRecuperacion = async (
     email: string
 ): Promise<{ exito: boolean; esExterno?: boolean; errorKey?: string }> => {
@@ -132,7 +161,7 @@ export const verificarUsuarioBloqueado = async (uid: string): Promise<boolean> =
     }
 };
 
-// 👤 Registrar perfil base tras autenticarse por Google
+// 👤 Registrar perfil base en Firestore tras autenticarse por Google
 export const gestionarIngresoGoogle = async (usuario: User): Promise<void> => {
     const userDocRef = doc(db, "usuarios", usuario.uid);
     const userSnap = await getDoc(userDocRef);
@@ -151,7 +180,7 @@ export const gestionarIngresoGoogle = async (usuario: User): Promise<void> => {
     }
 };
 
-// 👤 Registrar perfil base tras autenticarse por Facebook
+// 👤 Registrar perfil base en Firestore tras autenticarse por Facebook
 export const gestionarIngresoFacebook = async (usuario: User): Promise<void> => {
     const userDocRef = doc(db, "usuarios", usuario.uid);
     const userSnap = await getDoc(userDocRef);
@@ -168,6 +197,53 @@ export const gestionarIngresoFacebook = async (usuario: User): Promise<void> => 
             correoBienvenidaEnviado: true
         });
     }
+};
+
+// 🚀 AUTENTICACIÓN HÍBRIDA CON GOOGLE (Página Web + App Móvil APK)
+export const iniciarSesionGoogleHibrido = async (): Promise<User> => {
+    let usuarioAuth: User;
+
+    if (Capacitor.isNativePlatform()) {
+        // 📱 Móvil (Capacitor): abre el diálogo nativo del dispositivo
+        await GoogleAuth.initialize();
+        const googleUser = await GoogleAuth.signIn();
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+        const resultado = await signInWithCredential(auth, credential);
+        usuarioAuth = resultado.user;
+    } else {
+        // 💻 Web: usa la ventana flotante estándar del navegador
+        const resultado = await signInWithPopup(auth, googleProvider);
+        usuarioAuth = resultado.user;
+    }
+
+    // Crea el perfil en Firestore si es nuevo usuario
+    await gestionarIngresoGoogle(usuarioAuth);
+    return usuarioAuth;
+};
+
+// 🚀 AUTENTICACIÓN HÍBRIDA CON FACEBOOK (Página Web + App Móvil APK)
+export const iniciarSesionFacebookHibrido = async (): Promise<User> => {
+    let usuarioAuth: User;
+
+    if (Capacitor.isNativePlatform()) {
+        // 📱 Móvil (Capacitor): usa la app nativa de Facebook o WebView seguro
+        const result = await FacebookLogin.login({ permissions: ['public_profile', 'email'] });
+        if (result.accessToken) {
+            const credential = FacebookAuthProvider.credential(result.accessToken.token);
+            const resultado = await signInWithCredential(auth, credential);
+            usuarioAuth = resultado.user;
+        } else {
+            throw new Error("No se obtuvo el token de Facebook.");
+        }
+    } else {
+        // 💻 Web: usa la ventana flotante estándar del navegador
+        const resultado = await signInWithPopup(auth, facebookProvider);
+        usuarioAuth = resultado.user;
+    }
+
+    // Crea el perfil en Firestore si es nuevo usuario
+    await gestionarIngresoFacebook(usuarioAuth);
+    return usuarioAuth;
 };
 
 // 🔑 Obtener clave del reCAPTCHA

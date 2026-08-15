@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ColExplore</string>
+    <string name="title_activity_main">ColExplore</string>
+    <string name="package_name">com.colexplore.app</string>
+    <string name="custom_url_scheme">com.colexplore.app</string>
+    <string name="server_client_id">212388302936-drc74cquj0r94r1iv4ki9nvu4ebkdbr0.apps.googleusercontent.com</string>
+    <string name="facebook_app_id">1958250954854661</string>
+    <string name="fb_login_protocol_scheme">fb704440100969fd2dfcf5d8961abbb6c0</string>
+    <string name="facebook_client_token">8f8e26fdeed0a2e04dce9fb50155edb4</string>
+</resources>

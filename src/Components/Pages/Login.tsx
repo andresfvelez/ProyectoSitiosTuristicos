@@ -13,9 +13,6 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import {
-    GoogleAuthProvider,
-    FacebookAuthProvider,
-    signInWithPopup,
     signInWithEmailAndPassword,
     onAuthStateChanged
 } from "firebase/auth";
@@ -31,15 +28,11 @@ import { mostrarAlerta } from '../../Layouts/Utils/alertUtils';
 import {
     enviarCorreoRecuperacion,
     verificarUsuarioBloqueado,
-    gestionarIngresoGoogle,
-    gestionarIngresoFacebook,
     obtenerClaveRecaptcha,
-    obtenerPerfilUsuario
+    obtenerPerfilUsuario,
+    iniciarSesionGoogleHibrido,
+    iniciarSesionFacebookHibrido
 } from '../../services/usuariosService';
-
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-const facebookProvider = new FacebookAuthProvider();
 
 const theme = createTheme();
 
@@ -53,7 +46,7 @@ export default function Login() {
     const [recaptchaKey, setRecaptchaKey] = useState<string | null>(null);
 
     const recaptchaRef = useRef<ReCAPTCHA>(null);
-    const esLoginManualRef = useRef<boolean>(false); // 🚩 Evita la ejecución doble de alertas
+    const esLoginManualRef = useRef<boolean>(false);
 
     const esFormularioValido = email.trim() !== '' && password.trim() !== '' && captchaValido;
 
@@ -148,7 +141,6 @@ export default function Login() {
         cargarRecaptcha();
     }, []);
 
-    // 🔄 Escuchar sesión previa existente (ej. refrescar página)
     useEffect(() => {
         const desuscribir = onAuthStateChanged(auth, async (usuario) => {
             if (usuario && !esLoginManualRef.current) {
@@ -169,7 +161,7 @@ export default function Login() {
         event.preventDefault();
         if (!esFormularioValido) return;
 
-        esLoginManualRef.current = true; // Activa bandera manual
+        esLoginManualRef.current = true;
 
         try {
             const resultado = await signInWithEmailAndPassword(auth, email, password);
@@ -210,11 +202,12 @@ export default function Login() {
         }
     };
 
+    // 🚀 GOOGLE HÍBRIDO (Mantiene la misma alerta y verificaciones de bloqueo)
     const iniciarSesionConGoogle = async () => {
-        esLoginManualRef.current = true; // Activa bandera manual
+        esLoginManualRef.current = true;
         try {
-            const resultado = await signInWithPopup(auth, googleProvider);
-            const usuario = resultado.user;
+            // Reemplazamos 'signInWithPopup' por nuestra función que decide si es Web o App Móvil
+            const usuario = await iniciarSesionGoogleHibrido();
 
             const estaPermitido = await verificarEstadoAcceso(usuario.uid);
             if (!estaPermitido) {
@@ -222,7 +215,6 @@ export default function Login() {
                 return;
             }
 
-            await gestionarIngresoGoogle(usuario);
             await redirigirSegunEstadoPerfil(usuario.uid);
         } catch (error: any) {
             esLoginManualRef.current = false;
@@ -236,11 +228,12 @@ export default function Login() {
         }
     };
 
+    // 🚀 FACEBOOK HÍBRIDO (Mantiene la misma alerta y verificaciones de bloqueo)
     const iniciarSesionConFacebook = async () => {
-        esLoginManualRef.current = true; // Activa bandera manual
+        esLoginManualRef.current = true;
         try {
-            const resultado = await signInWithPopup(auth, facebookProvider);
-            const usuario = resultado.user;
+            // Reemplazamos 'signInWithPopup' por nuestra función que decide si es Web o App Móvil
+            const usuario = await iniciarSesionFacebookHibrido();
 
             const estaPermitido = await verificarEstadoAcceso(usuario.uid);
             if (!estaPermitido) {
@@ -248,7 +241,6 @@ export default function Login() {
                 return;
             }
 
-            await gestionarIngresoFacebook(usuario);
             await redirigirSegunEstadoPerfil(usuario.uid);
         } catch (error: any) {
             esLoginManualRef.current = false;

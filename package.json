@@ -4,6 +4,11 @@
   "private": true,
   "dependencies": {
     "@auth0/auth0-react": "^1.12.0",
+    "@capacitor-community/facebook-login": "^8.0.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@emailjs/browser": "^4.4.1",
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",

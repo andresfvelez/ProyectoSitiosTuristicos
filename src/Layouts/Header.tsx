@@ -7,17 +7,33 @@ import { useAuth } from "../auth/AuthProvider";
 import { signOut } from 'firebase/auth';
 import { auth } from "../firebase/firebaseConfig";
 import { obtenerFotoPerfilUsuario } from '../services/usuariosService';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+// Material UI Imports
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
 import Logout from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import { EstadoConexion } from "./EstadoConexion";
-import { DEFAULT_AVATAR } from './Images/defaulAvatar';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import FlagIcon from '@mui/icons-material/Flag';
 import BuildIcon from '@mui/icons-material/Build';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
+import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
+import Box from '@mui/material/Box';
+
+import { EstadoConexion } from "./EstadoConexion";
+import { DEFAULT_AVATAR } from './Images/defaulAvatar';
+import Swal from "sweetalert2";
+import {mostrarAlerta} from "./Utils/alertUtils";
+import {migrarDocumentosViejos} from "../services/lugaresService";
+
 interface HeaderProps {
     sections: ReadonlyArray<{ title: string; url: string; }>;
     availablePlaces: any[];
@@ -40,10 +56,58 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
     const [searchText, setSearchText] = useState("");
     const { usuario, rol } = useAuth();
 
-    // 🖼️ Estado para controlar la URL o base64 de la foto de perfil activa
+    // 📱 Estado para abrir/cerrar el menú desplegable en móviles
+    const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+    // 🖼️ Estado para la foto de perfil activa
     const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string>(DEFAULT_AVATAR);
 
-    // 🔄 Cargar dinámicamente la foto de perfil desde Firestore al detectar un usuario activo
+
+    const ejecutarMigración = async () => {
+        handleMenuClose();
+        setMobileMenuOpen(false);
+
+        const result = await Swal.fire({
+            title: '¿Migrar documentos viejos?',
+            text: 'Esta acción buscará destinos creados anteriormente que no tengan el campo "confirmado" y les asignará "true" automáticamente para acelerar Firestore.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, ejecutar migración',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#1976d2',
+            cancelButtonColor: '#dc2626'
+        });
+
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Migrando datos...',
+                text: 'Por favor espera un momento.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading(Swal.getConfirmButton());
+                }
+            });
+
+            try {
+                const actualizados = await migrarDocumentosViejos();
+                Swal.close();
+                mostrarAlerta({
+                    title: '¡Migración Completada!',
+                    text: `Se actualizaron exitosamente ${actualizados} registros viejos en la base de datos.`,
+                    icon: 'success'
+                });
+            } catch (error) {
+                Swal.close();
+                mostrarAlerta({
+                    title: 'Error de migración',
+                    text: 'Ocurrió un problema al intentar actualizar la base de datos.',
+                    icon: 'error'
+                });
+            }
+        }
+    };
+
+
     useEffect(() => {
         const cargarFotoHeader = async () => {
             if (usuario?.uid) {
@@ -67,8 +131,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
         };
 
         cargarFotoHeader();
-
-        // 🔔 Escuchar la señal de actualización
         window.addEventListener('perfilActualizado', cargarFotoHeader);
 
         return () => {
@@ -123,6 +185,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
     const handleCerrarSesion = async () => {
         try {
             handleMenuClose();
+            setMobileMenuOpen(false);
             await signOut(auth);
             console.log("🔒 Sesión destruida correctamente.");
             navigate("/login");
@@ -150,13 +213,22 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
         navigate(`/Destinos?search=${encodeURIComponent(searchText)}`);
     };
 
+    const irANavegacion = (url: string) => {
+        setMobileMenuOpen(false);
+        navigate(url);
+    };
+
     return (
         <nav className="navbar navbar-expand-lg fixed-top custom-header">
-            <div className="container-fluid d-flex align-items-center justify-content-between px-4">
+            <div className="container-fluid d-flex align-items-center justify-content-between px-3 px-md-4">
+
+                {/* LADO IZQUIERDO: LOGO Y SECCIONES ESCRITORIO */}
                 <div className="d-flex align-items-center">
-                    <a className="navbar-brand logo-text me-4" href="/">
+                    <a className="navbar-brand logo-text me-3 me-md-4" href="/">
                         COL<span className="text-primary">EXPLORE</span>
                     </a>
+
+                    {/* Secciones en Escritorio (lg) */}
                     <div className="collapse navbar-collapse d-none d-lg-block">
                         <ul className="navbar-nav">
                             {sections.map((section) => (
@@ -164,50 +236,31 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                     <a className="nav-link nav-custom-link" href={section.url}>{section.title}</a>
                                 </li>
                             ))}
-                            {rol === 'administrador' && (
-                                <li className="nav-item ms-3 border-start ps-3 d-flex align-items-center gap-2">
-                                    <span className="badge bg-danger me-1" style={{ fontSize: '0.65rem' }}>ADMIN</span>
 
-                                    <RouterLink
-                                        to="/admin/pendientes"
-                                        className="btn btn-sm btn-warning text-dark fw-bold d-flex align-items-center gap-1"
-                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
-                                    >
-                                        ⏳ Pendientes
-                                    </RouterLink>
-
-                                    <RouterLink
-                                        to="/admin/reportes"
-                                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
-                                    >
-                                        🚩 Reportes
-                                    </RouterLink>
-
-                                    <RouterLink
-                                        to="/admin/scrapper"
-                                        className="btn btn-sm btn-outline-info text-dark fw-bold d-flex align-items-center gap-1"
-                                        style={{ borderRadius: '20px', fontSize: '0.8rem' }}
-                                    >
-                                        🛠️ Scrapper
-                                    </RouterLink>
-                                </li>
-                            )}
                         </ul>
                     </div>
                 </div>
-                <EstadoConexion />
-                <div className="d-flex align-items-center gap-3">
+
+                {/* INDICADOR CONEXIÓN */}
+                <div className="d-none d-sm-block">
+                    <EstadoConexion />
+                </div>
+
+                {/* LADO DERECHO: BUSCADOR + AVATAR + BOTÓN HAMBURGUESA MÓVIL */}
+                <div className="d-flex align-items-center gap-2 gap-md-3">
+
+                    {/* Buscador de Ant Design (responsivo) */}
                     <div className="search-wrapper">
                         <AutoComplete
                             options={options}
                             onSelect={handleSelect}
                             onSearch={onSearch}
-                            style={{ width: 250 }}
+                            style={{ width: 180 }} // Más compacto en móviles
+                            className="search-input-responsive"
                         >
                             <Input
                                 size="middle"
-                                placeholder="Buscar lugar o clima..."
+                                placeholder="Buscar..."
                                 onPressEnter={handlePressEnter}
                                 prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
                                 suffix={
@@ -220,7 +273,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </AutoComplete>
                     </div>
 
-                    {/* 👤 Contenedor dinámico del avatar */}
+                    {/* 👤 Avatar del usuario */}
                     <div
                         onClick={handleAvatarClick}
                         style={{ cursor: 'pointer' }}
@@ -241,71 +294,169 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </div>
                     </div>
 
-                    <Menu
-                        anchorEl={anchorEl}
-                        id="account-menu"
-                        open={open}
-                        onClose={handleMenuClose}
-                        onClick={handleMenuClose}
-                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                        PaperProps={{
-                            elevation: 3,
-                            sx: {
-                                overflow: 'visible',
-                                filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.15))',
-                                mt: 1.5,
-                                '& .MuiAvatar-root': { width: 32, height: 32, ml: -0.5, mr: 1 },
-                                '&::before': {
-                                    content: '""', display: 'block', position: 'absolute', top: 0, right: 14,
-                                    width: 10, height: 10, bgcolor: 'background.paper', transform: 'translateY(-50%) rotate(45deg)',
-                                    zIndex: 0,
-                                },
-                            },
-                        }}
+                    {/* 📱 BOTÓN HAMBURGUESA (Solo visible en móviles / tabletas pequeñas 'd-lg-none') */}
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="d-lg-none text-dark ms-1"
                     >
-                        <MenuItem component={RouterLink} to="/profile">
-                            <ListItemIcon>
-                                <PersonIcon fontSize="small" />
-                            </ListItemIcon>
-                            Mi Perfil
-                        </MenuItem>
+                        <MenuIcon />
+                    </IconButton>
 
-                        {rol === 'administrador' && (
-                            <>
-                                <MenuItem component={RouterLink} to="/admin/pendientes">
-                                    <ListItemIcon>
-                                        <HourglassTopIcon fontSize="small" color="warning" />
-                                    </ListItemIcon>
-                                    Destinos Pendientes
-                                </MenuItem>
-
-                                <MenuItem component={RouterLink} to="/admin/reportes">
-                                    <ListItemIcon>
-                                        <FlagIcon fontSize="small" color="error" />
-                                    </ListItemIcon>
-                                    Reportes
-                                </MenuItem>
-
-                                <MenuItem component={RouterLink} to="/admin/scrapper">
-                                    <ListItemIcon>
-                                        <BuildIcon fontSize="small" color="primary" />
-                                    </ListItemIcon>
-                                    Scrapper / Migrador
-                                </MenuItem>
-                            </>
-                        )}
-                        <Divider />
-
-                        <MenuItem onClick={handleCerrarSesion} sx={{ color: 'error.main' }}>
-                            <ListItemIcon>
-                                <Logout fontSize="small" color="error" />
-                            </ListItemIcon>
-                            Cerrar Sesión
-                        </MenuItem>
-                    </Menu>
                 </div>
             </div>
+
+            {/* MENU AVATAR (ESCRITORIO Y MÓVIL) */}
+            <Menu
+                anchorEl={anchorEl}
+                id="account-menu"
+                open={open}
+                onClose={handleMenuClose}
+                onClick={handleMenuClose}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                PaperProps={{
+                    elevation: 3,
+                    sx: {
+                        overflow: 'visible',
+                        filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.15))',
+                        mt: 1.5,
+                        '& .MuiAvatar-root': { width: 32, height: 32, ml: -0.5, mr: 1 },
+                        '&::before': {
+                            content: '""', display: 'block', position: 'absolute', top: 0, right: 14,
+                            width: 10, height: 10, bgcolor: 'background.paper', transform: 'translateY(-50%) rotate(45deg)',
+                            zIndex: 0,
+                        },
+                    },
+                }}
+            >
+                <MenuItem component={RouterLink} to="/profile">
+                    <ListItemIcon>
+                        <PersonIcon fontSize="small" />
+                    </ListItemIcon>
+                    Mi Perfil
+                </MenuItem>
+
+                {rol === 'administrador' && (
+                    <>
+                        <MenuItem component={RouterLink} to="/admin/pendientes">
+                            <ListItemIcon>
+                                <HourglassTopIcon fontSize="small" color="warning" />
+                            </ListItemIcon>
+                            Destinos Pendientes
+                        </MenuItem>
+
+                        <MenuItem component={RouterLink} to="/admin/reportes">
+                            <ListItemIcon>
+                                <FlagIcon fontSize="small" color="error" />
+                            </ListItemIcon>
+                            Reportes
+                        </MenuItem>
+
+                        <MenuItem component={RouterLink} to="/admin/scrapper">
+                            <ListItemIcon>
+                                <BuildIcon fontSize="small" color="primary" />
+                            </ListItemIcon>
+                            Scrapper / Migrador
+                        </MenuItem>
+                        <MenuItem onClick={ejecutarMigración}>
+                            <ListItemIcon>
+                                <AutoFixHighIcon fontSize="small" color="secondary" />
+                            </ListItemIcon>
+                            Migrar BD Vieja
+                        </MenuItem>
+                    </>
+                )}
+                <Divider />
+
+                <MenuItem onClick={handleCerrarSesion} sx={{ color: 'error.main' }}>
+                    <ListItemIcon>
+                        <Logout fontSize="small" color="error" />
+                    </ListItemIcon>
+                    Cerrar Sesión
+                </MenuItem>
+            </Menu>
+
+            {/* 📱 PANEL LATERAL DESPLEGABLE (DRAWER) PARA MÓVILES */}
+            <Drawer
+                anchor="right"
+                open={mobileMenuOpen}
+                onClose={() => setMobileMenuOpen(false)}
+            >
+                <Box sx={{ width: 280, p: 2 }}>
+                    <Box className="d-flex justify-content-between align-items-center mb-3">
+                        <span className="fw-bold text-primary fs-5">COLEXPLORE</span>
+                        <IconButton onClick={() => setMobileMenuOpen(false)}>
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                    <Divider />
+
+                    <List>
+                        {/* Secciones que venían en la prop 'sections' */}
+                        {sections.map((sec) => (
+                            <ListItem key={sec.title} disablePadding>
+                                <ListItemButton onClick={() => irANavegacion(sec.url)}>
+                                    <ListItemText primary={sec.title} />
+                                </ListItemButton>
+                            </ListItem>
+                        ))}
+
+                        {/* Opciones de Administrador en el panel móvil */}
+                        {rol === 'administrador' && (
+                            <>
+                                <Divider sx={{ my: 1 }} />
+                                <Box className="px-3 py-1">
+                                    <span className="badge bg-danger">ADMINISTRADOR</span>
+                                </Box>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={() => irANavegacion("/admin/pendientes")}>
+                                        <ListItemIcon><HourglassTopIcon color="warning" /></ListItemIcon>
+                                        <ListItemText primary="Pendientes" />
+                                    </ListItemButton>
+                                </ListItem>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={() => irANavegacion("/admin/reportes")}>
+                                        <ListItemIcon><FlagIcon color="error" /></ListItemIcon>
+                                        <ListItemText primary="Reportes" />
+                                    </ListItemButton>
+                                </ListItem>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={() => irANavegacion("/admin/scrapper")}>
+                                        <ListItemIcon><BuildIcon color="primary" /></ListItemIcon>
+                                        <ListItemText primary="Scrapper" />
+                                    </ListItemButton>
+                                </ListItem>
+                            </>
+                        )}
+
+                        <Divider sx={{ my: 1 }} />
+
+                        {usuario ? (
+                            <>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={() => irANavegacion("/profile")}>
+                                        <ListItemIcon><PersonIcon color="action" /></ListItemIcon>
+                                        <ListItemText primary="Mi Perfil" />
+                                    </ListItemButton>
+                                </ListItem>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={handleCerrarSesion}>
+                                        <ListItemIcon><Logout color="error" /></ListItemIcon>
+                                        <ListItemText primary="Cerrar Sesión" sx={{ color: 'error.main' }} />
+                                    </ListItemButton>
+                                </ListItem>
+                            </>
+                        ) : (
+                            <ListItem disablePadding>
+                                <ListItemButton onClick={() => irANavegacion("/login")}>
+                                    <ListItemText primary="Iniciar Sesión" sx={{ color: '#1976d2', fontWeight: 'bold' }} />
+                                </ListItemButton>
+                            </ListItem>
+                        )}
+                    </List>
+                </Box>
+            </Drawer>
         </nav>
     );
 }
