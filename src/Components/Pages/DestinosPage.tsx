@@ -590,25 +590,42 @@ export default function DestinosPage() {
             </Paper>
 
             {/* 👈 PESTAÑAS CONDICIONALES */}
-            <Tabs
-                activeKey={tabActiva}
-                onChange={setTabActiva}
-                size="large"
-                items={[
-                    {
-                        key: "1",
-                        label: `🌏 Destinos Turísticos (${todosLosLugares.length})`,
+            <Box
+                sx={{
+                    "& .ant-tabs-nav-wrap": {
+                        justifyContent: { xs: "center", sm: "flex-start" }
                     },
-                    ...(usuario ? [{
-                        key: "2",
-                        label: `👤 Mis Destinos Publicados (${misLugares.length})`,
-                    }] : []),
-                    ...(usuario && misFavoritos.length > 0 ? [{
-                        key: "3",
-                        label: `❤️ Favoritos (${misFavoritos.length})`,
-                    }] : [])
-                ]}
-            />
+                    "& .ant-tabs-nav-list": {
+                        flexWrap: { xs: "wrap", sm: "nowrap" },
+                        justifyContent: { xs: "center", sm: "flex-start" }, // 👈 Centra los elementos al saltar de línea
+                        gap: { xs: "8px", sm: "0px" }
+                    },
+                    "& .ant-tabs-tab": {
+                        // Margen simétrico (izq/der) en móviles para que el centrado sea perfecto
+                        margin: { xs: "4px 6px !important", sm: "0 32px 0 0 !important" }
+                    }
+                }}
+            >
+                <Tabs
+                    activeKey={tabActiva}
+                    onChange={setTabActiva}
+                    size="large"
+                    items={[
+                        {
+                            key: "1",
+                            label: `🌏 Destinos Turísticos (${todosLosLugares.length})`,
+                        },
+                        ...(usuario ? [{
+                            key: "2",
+                            label: `👤 Mis Destinos Publicados (${misLugares.length})`,
+                        }] : []),
+                        ...(usuario && misFavoritos.length > 0 ? [{
+                            key: "3",
+                            label: `❤️ Favoritos (${misFavoritos.length})`,
+                        }] : [])
+                    ]}
+                />
+            </Box>
 
             {/* GRID DE DESTINOS PAGINADO */}
             <Box sx={{ mt: 3 }}>

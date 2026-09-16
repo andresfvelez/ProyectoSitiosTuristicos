@@ -266,8 +266,17 @@ export const Profile: FunctionComponent = () => {
   }
 
   return (
-      <Box className="profile-container">
-        <Paper elevation={0} className="profile-card">
+      <Box className="profile-container" sx={{ px: { xs: 1.5, sm: 3, md: 4 }, overflowX: 'hidden', pb: 8 }}>
+        <Paper
+            elevation={0}
+            className="profile-card"
+            sx={{
+              p: { xs: 2, sm: 3, md: 4 },
+              borderRadius: { xs: '16px', sm: '24px' },
+              maxWidth: '1000px',
+              mx: 'auto'
+            }}
+        >
 
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
             <SelectorImagenes
@@ -285,29 +294,32 @@ export const Profile: FunctionComponent = () => {
             />
           </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          {/* 📑 PESTAÑAS ADAPTATIVAS PARA MÓVILES */}
+          <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', mb: 3 }}>
             <Tabs
                 value={tabSubMenu}
                 onChange={(_, newValue) => setTabSubMenu(newValue)}
+                variant="fullWidth"
                 textColor="primary"
                 indicatorColor="primary"
                 sx={{
                   '& .MuiTab-root': {
                     fontWeight: 700,
                     textTransform: 'none',
-                    fontSize: '0.95rem',
-                    px: 3
+                    fontSize: { xs: '0.82rem', sm: '0.95rem' },
+                    px: { xs: 1, sm: 3 },
+                    minHeight: 48
                   }
                 }}
             >
-              <Tab icon={<PersonIcon />} iconPosition="start" label="Información Personal" />
-              <Tab icon={<TuneIcon />} iconPosition="start" label="Preferencias de Viaje" />
+              <Tab icon={<PersonIcon fontSize="small" />} iconPosition="start" label="Información Personal" />
+              <Tab icon={<TuneIcon fontSize="small" />} iconPosition="start" label="Preferencias de Viaje" />
             </Tabs>
           </Box>
 
           {/* 📑 TAB 1: INFORMACIÓN PERSONAL */}
           {tabSubMenu === 0 && (
-              <Grid container spacing={3}>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
                 <Grid item xs={12} md={6}>
                   <label className="input-label">Nombre Completo:</label>
                   <TextField
@@ -429,17 +441,17 @@ export const Profile: FunctionComponent = () => {
 
           {/* 📑 TAB 2: PREFERENCIAS DE VIAJE */}
           {tabSubMenu === 1 && (
-              <Grid container spacing={3}>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
                 {preferenciasObligatorias && !estaPreferenciasCompletas && (
                     <Grid item xs={12}>
-                      <Alert severity="warning" sx={{ borderRadius: '12px', fontWeight: 600 }}>
+                      <Alert severity="warning" sx={{ borderRadius: '12px', fontWeight: 600, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                         ⚠️ Para guardar tu perfil debes seleccionar todas las preferencias de viaje obligatorias (*).
                       </Alert>
                     </Grid>
                 )}
 
                 <Grid item xs={12}>
-                  <Typography variant="body2" sx={{ color: '#64748b', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: '#64748b', mb: 1, fontSize: { xs: '0.82rem', sm: '0.875rem' } }}>
                     Configura tus gustos para alimentar el algoritmo de recomendación personalizada.
                   </Typography>
                 </Grid>
@@ -453,7 +465,7 @@ export const Profile: FunctionComponent = () => {
                         <label className="input-label">
                           {pregunta.titulo}{' '}
                           {preferenciasObligatorias && <span style={{ color: '#ef4444' }}>*</span>}{' '}
-                          {esMultiple && <span style={{ fontSize: '0.8rem', color: '#0ea5e9' }}>(Selección múltiple)</span>}:
+                          {esMultiple && <span style={{ fontSize: '0.78rem', color: '#0ea5e9' }}>(Selección múltiple)</span>}:
                         </label>
                         <TextField
                             select
@@ -512,13 +524,14 @@ export const Profile: FunctionComponent = () => {
           )}
 
           <Grid container justifyContent="flex-end" sx={{ mt: 3 }}>
-            <Grid item>
+            <Grid item xs={12} sm="auto">
               <Button
                   variant="contained"
                   className="update-button"
                   endIcon={guardando ? <CircularProgress size={20} color="inherit" /> : <EditIcon />}
                   onClick={handleActualizarInformacion}
                   disabled={botonDeshabilitado}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {guardando ? 'Guardando...' : 'Actualizar Información'}
               </Button>
@@ -526,11 +539,11 @@ export const Profile: FunctionComponent = () => {
           </Grid>
         </Paper>
 
-        {/* ❤️ SECCIÓN DE DESTINOS FAVORITOS (MÁXIMO 10 MÁS RECIENTES) */}
+        {/* ❤️ SECCIÓN DE DESTINOS FAVORITOS */}
         {favoritos.length > 0 && (
-            <Box sx={{ mt: 6 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h5" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ mt: { xs: 4, sm: 6 } }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
+                <Typography variant="h5" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                   <FavoriteIcon sx={{ color: '#ef4444' }} /> Mis Destinos Favoritos
                 </Typography>
                 <Button
@@ -540,7 +553,8 @@ export const Profile: FunctionComponent = () => {
                       color: '#0ea5e9',
                       fontWeight: 'bold',
                       textTransform: 'none',
-                      fontSize: '0.95rem'
+                      fontSize: '0.9rem',
+                      p: 0
                     }}
                 >
                   Ver todos ({favoritos.length}) →
@@ -551,15 +565,15 @@ export const Profile: FunctionComponent = () => {
                 <div className="carousel-wrapper">
                   <div className="slider-container">
                     <button className="nav-btn left" onClick={() => scroll("left", scrollFavRef)}>
-                      <ArrowBackIosIcon />
+                      <ArrowBackIosIcon fontSize="small" />
                     </button>
                     <div className="cards-track" ref={scrollFavRef}>
                       {favoritos.slice(0, 10).map((post, index) => (
                           <Box
                               key={post.id || index}
                               sx={{
-                                flex: '0 0 280px', // Ancho fijo para cada tarjeta en el carrusel
-                                maxWidth: '280px',
+                                flex: '0 0 270px',
+                                maxWidth: '270px',
                                 width: '100%'
                               }}
                           >
@@ -568,7 +582,7 @@ export const Profile: FunctionComponent = () => {
                       ))}
                     </div>
                     <button className="nav-btn right" onClick={() => scroll("right", scrollFavRef)}>
-                      <ArrowForwardIosIcon />
+                      <ArrowForwardIosIcon fontSize="small" />
                     </button>
                   </div>
                 </div>
@@ -577,7 +591,7 @@ export const Profile: FunctionComponent = () => {
         )}
 
         {/* 🏔️ SECCIÓN ÚLTIMOS DESTINOS EXPLORADOS / POPULARES */}
-        <Typography variant="h5" fontWeight="bold" sx={{ mt: 6, mb: 3 }}>
+        <Typography variant="h5" fontWeight="bold" sx={{ mt: { xs: 4, sm: 6 }, mb: 3, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
           Últimos Destinos Explorados
         </Typography>
 
@@ -588,7 +602,7 @@ export const Profile: FunctionComponent = () => {
             {lugares.length > 0 && (
                 <div className="slider-container">
                   <button className="nav-btn left" onClick={() => scroll("left", scrollRef)}>
-                    <ArrowBackIosIcon />
+                    <ArrowBackIosIcon fontSize="small" />
                   </button>
                   <div className="cards-track" ref={scrollRef}>
                     {lugares.map((post, index) => (
@@ -596,7 +610,7 @@ export const Profile: FunctionComponent = () => {
                     ))}
                   </div>
                   <button className="nav-btn right" onClick={() => scroll("right", scrollRef)}>
-                    <ArrowForwardIosIcon />
+                    <ArrowForwardIosIcon fontSize="small" />
                   </button>
                 </div>
             )}

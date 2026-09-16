@@ -11,14 +11,14 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import PersonIcon from '@mui/icons-material/Person';
-import BlockIcon from '@mui/icons-material/Block'; // 👈 Icono para dar de baja
+import BlockIcon from '@mui/icons-material/Block';
 
 import {
     obtenerLugaresConReportesPendientes,
     desestimarReportesLugar,
     ponerLugarEnRevision,
     obtenerLugaresEnRevision,
-    darDeBajaLugar // 👈 Agregamos la función
+    darDeBajaLugar
 } from '../../services/lugaresService';
 
 const ReportesAdmin = () => {
@@ -30,7 +30,7 @@ const ReportesAdmin = () => {
     const cargarDatos = async () => {
         setCargando(true);
         const [pendientes, revisiones] = await Promise.all([
-            obtenerLugaresConReportesPendientes(1),
+            obtenerLugaresConReportesPendientes(),
             obtenerLugaresEnRevision()
         ]);
         setDataPendientes(pendientes);
@@ -84,13 +84,21 @@ const ReportesAdmin = () => {
                 dataSource={record.reportes}
                 renderItem={(repo: any) => (
                     <List.Item style={{ padding: '8px 0', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
                             <strong style={{ color: '#ef4444', marginRight: '6px' }}>•</strong> {repo.motivo}
                         </Typography>
                         <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5, ml: 2 }}>
-                            <PersonIcon sx={{ fontSize: 14, color: '#94a3b8' }} />
-                            <Typography variant="caption" color="#64748b" fontWeight="bold">
-                                ID Usuario: {repo.usuarioId}
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                                <PersonIcon sx={{ fontSize: 14, color: '#0ea5e9' }} />
+                                <Typography variant="caption" color="#0369a1" fontWeight="bold" sx={{ wordBreak: 'break-word' }}>
+                                    {repo.usuarioNombre || 'Usuario Desconocido'}
+                                </Typography>
+                            </Stack>
+
+                            <Typography variant="caption" color="#cbd5e1" fontWeight="bold">•</Typography>
+
+                            <Typography variant="caption" color="#64748b" sx={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                ID: {repo.usuarioId}
                             </Typography>
                         </Stack>
                     </List.Item>
@@ -99,24 +107,27 @@ const ReportesAdmin = () => {
         </Box>
     );
 
-    // -- COLUMNAS PESTAÑA 1: NUEVOS REPORTES --
+    // -- COLUMNAS PESTAÑA 1: NUEVOS REPORTES (ANCHOS EN PX) --
     const colsPendientes = [
         {
             title: 'Destino Reportado',
             dataIndex: ['lugar', 'nombre'],
             key: 'nombre',
-            render: (text: string) => <strong>{text}</strong>,
+            width: 200,
+            render: (text: string) => <strong style={{ wordBreak: 'break-word' }}>{text}</strong>,
         },
         {
             title: 'Categoría',
             dataIndex: ['lugar', 'categoria'],
             key: 'categoria',
+            width: 130,
             render: (cat: string) => <Tag color="blue">{cat?.toUpperCase()}</Tag>,
         },
         {
             title: 'Reportes Acumulados',
             dataIndex: 'reportes',
             key: 'cantidad',
+            width: 170,
             render: (reportes: any[]) => (
                 <MuiChip icon={<FlagIcon style={{ fontSize: 16 }} />} label={`${reportes.length} Pendientes`} color="error" size="small" sx={{ fontWeight: 'bold' }} />
             ),
@@ -124,15 +135,32 @@ const ReportesAdmin = () => {
         {
             title: 'Acciones de Moderación',
             key: 'acciones',
+            width: 260,
             render: (_: any, record: any) => (
-                <Stack direction="row" spacing={2}>
-                    <Popconfirm title="¿Desestimar reportes?" description="El lugar continuará publicado libremente." onConfirm={() => handleDesestimar(record.lugar.id)} okText="Sí" cancelText="Cancelar">
-                        <Button style={{ color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Stack direction="row" spacing={1.5}>
+                    <Popconfirm
+                        title="¿Desestimar reportes?"
+                        description="El lugar continuará publicado libremente."
+                        onConfirm={() => handleDesestimar(record.lugar.id)}
+                        okText="Sí"
+                        cancelText="Cancelar"
+                        placement="bottomRight"
+                        overlayStyle={{ maxWidth: '280px' }}
+                    >
+                        <Button style={{ color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <CheckCircleOutlineIcon style={{ fontSize: 18 }} /> Desestimar
                         </Button>
                     </Popconfirm>
-                    <Popconfirm title="¿Poner en revisión (ocultar)?" onConfirm={() => handleRevision(record.lugar.id)} okText="Ocultar" cancelText="Cancelar" okButtonProps={{ danger: true }}>
-                        <Button danger style={{ borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Popconfirm
+                        title="¿Poner en revisión (ocultar)?"
+                        onConfirm={() => handleRevision(record.lugar.id)}
+                        okText="Ocultar"
+                        cancelText="Cancelar"
+                        okButtonProps={{ danger: true }}
+                        placement="bottomRight"
+                        overlayStyle={{ maxWidth: '280px' }}
+                    >
+                        <Button danger style={{ borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <GppBadIcon style={{ fontSize: 18 }} /> Poner en Revisión
                         </Button>
                     </Popconfirm>
@@ -141,18 +169,20 @@ const ReportesAdmin = () => {
         },
     ];
 
-    // -- COLUMNAS PESTAÑA 2: EN REVISIÓN --
+    // -- COLUMNAS PESTAÑA 2: EN REVISIÓN (ANCHOS EN PX) --
     const colsRevision = [
         {
             title: 'Destino en Revisión',
             dataIndex: ['lugar', 'nombre'],
             key: 'nombre',
-            render: (text: string) => <strong>{text}</strong>,
+            width: 200,
+            render: (text: string) => <strong style={{ wordBreak: 'break-word' }}>{text}</strong>,
         },
         {
             title: 'Reportes Vinculados',
             dataIndex: 'reportes',
             key: 'cantidad',
+            width: 170,
             render: (reportes: any[]) => (
                 <MuiChip label={`${reportes.length} Registrados`} color="warning" size="small" sx={{ fontWeight: 'bold' }} />
             ),
@@ -160,9 +190,9 @@ const ReportesAdmin = () => {
         {
             title: 'Acciones',
             key: 'acciones',
+            width: 350,
             render: (_: any, record: any) => (
                 <Stack direction="row" spacing={1.5}>
-                    {/* PREVISUALIZAR */}
                     <Button
                         type="primary"
                         style={{ borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#0284c7' }}
@@ -171,20 +201,20 @@ const ReportesAdmin = () => {
                         <RemoveRedEyeIcon style={{ fontSize: 18 }} /> Previsualizar
                     </Button>
 
-                    {/* DESESTIMAR */}
                     <Popconfirm
                         title="¿Desestimar reportes?"
                         description="El lugar se restaurará a la plataforma pública."
                         onConfirm={() => handleDesestimar(record.lugar.id)}
                         okText="Restaurar"
                         cancelText="Cancelar"
+                        placement="bottomRight"
+                        overlayStyle={{ maxWidth: '280px' }}
                     >
                         <Button style={{ color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <CheckCircleOutlineIcon style={{ fontSize: 18 }} /> Desestimar
                         </Button>
                     </Popconfirm>
 
-                    {/* DAR DE BAJA */}
                     <Popconfirm
                         title="¿Dar de baja este sitio?"
                         description="El sitio cambiará su estado a 'dado de baja' permanentemente."
@@ -192,6 +222,8 @@ const ReportesAdmin = () => {
                         okText="Sí, Dar de baja"
                         cancelText="Cancelar"
                         okButtonProps={{ danger: true }}
+                        placement="bottomRight"
+                        overlayStyle={{ maxWidth: '280px' }}
                     >
                         <Button danger style={{ borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <BlockIcon style={{ fontSize: 18 }} /> Dar de Baja
@@ -217,59 +249,79 @@ const ReportesAdmin = () => {
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "#f1f5f9", minHeight: "100vh" }}>
-            <Paper sx={{ p: 4, borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 4 }}>
-                    <FlagIcon sx={{ fontSize: 36, color: "#ef4444" }} />
+        <Box sx={{ p: { xs: 1.5, sm: 3, md: 4 }, bgcolor: "#f1f5f9", minHeight: "100vh", overflowX: "hidden" }}>
+            <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: { xs: "16px", sm: "20px" }, boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <FlagIcon sx={{ fontSize: { xs: 28, sm: 36 }, color: "#ef4444" }} />
                     <Box>
-                        <Typography variant="h5" fontWeight="800">Centro de Moderación</Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="h5" fontWeight="800" sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
+                            Centro de Moderación
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.82rem", sm: "0.875rem" } }}>
                             Gestiona los reportes de los usuarios y audita los lugares conflictivos.
                         </Typography>
                     </Box>
                 </Stack>
 
-                <Tabs
-                    defaultActiveKey="1"
-                    items={[
-                        {
-                            key: "1",
-                            label: (
-                                <span style={{ fontWeight: 'bold' }}>
-                  🚩 Nuevos Reportes ({dataPendientes.length})
-                </span>
-                            ),
-                            children: (
-                                <Table
-                                    columns={colsPendientes}
-                                    dataSource={dataPendientes}
-                                    rowKey={(record) => record.lugar.id}
-                                    loading={cargando}
-                                    expandable={configExpansion}
-                                    pagination={{ pageSize: 10 }}
-                                />
-                            )
+                <Box
+                    sx={{
+                        "& .ant-tabs-nav-wrap": {
+                            justifyContent: { xs: "center", sm: "flex-start" }
                         },
-                        {
-                            key: "2",
-                            label: (
-                                <span style={{ fontWeight: 'bold' }}>
-                  ⚠️ Sitios en Revisión ({dataRevision.length})
-                </span>
-                            ),
-                            children: (
-                                <Table
-                                    columns={colsRevision}
-                                    dataSource={dataRevision}
-                                    rowKey={(record) => record.lugar.id}
-                                    loading={cargando}
-                                    expandable={configExpansion}
-                                    pagination={{ pageSize: 10 }}
-                                />
-                            )
+                        "& .ant-tabs-nav-list": {
+                            flexWrap: { xs: "wrap", sm: "nowrap" },
+                            justifyContent: { xs: "center", sm: "flex-start" },
+                            gap: { xs: "8px", sm: "0px" }
+                        },
+                        "& .ant-tabs-tab": {
+                            margin: { xs: "4px 6px !important", sm: "0 32px 0 0 !important" }
                         }
-                    ]}
-                />
+                    }}
+                >
+                    <Tabs
+                        defaultActiveKey="1"
+                        items={[
+                            {
+                                key: "1",
+                                label: (
+                                    <span style={{ fontWeight: 'bold' }}>
+                                        🚩 Nuevos Reportes ({dataPendientes.length})
+                                    </span>
+                                ),
+                                children: (
+                                    <Table
+                                        columns={colsPendientes}
+                                        dataSource={dataPendientes}
+                                        rowKey={(record) => record.lugar.id}
+                                        loading={cargando}
+                                        expandable={configExpansion}
+                                        pagination={{ pageSize: 10, responsive: true }}
+                                        scroll={{ x: 'max-content' }}
+                                    />
+                                )
+                            },
+                            {
+                                key: "2",
+                                label: (
+                                    <span style={{ fontWeight: 'bold' }}>
+                                        ⚠️ Sitios en Revisión ({dataRevision.length})
+                                    </span>
+                                ),
+                                children: (
+                                    <Table
+                                        columns={colsRevision}
+                                        dataSource={dataRevision}
+                                        rowKey={(record) => record.lugar.id}
+                                        loading={cargando}
+                                        expandable={configExpansion}
+                                        pagination={{ pageSize: 10, responsive: true }}
+                                        scroll={{ x: 'max-content' }}
+                                    />
+                                )
+                            }
+                        ]}
+                    />
+                </Box>
             </Paper>
         </Box>
     );

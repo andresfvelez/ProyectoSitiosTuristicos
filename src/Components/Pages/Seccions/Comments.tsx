@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
-    Box, Typography, Grid, Paper, Stack, IconButton, TextField, Avatar
+    Box, Typography, Grid, Paper, Stack, IconButton, Avatar
 } from '@mui/material';
-import { Button, Form } from 'antd'; // Manteniendo el mix con Ant Design que usas
+import { Button, Form, Input } from 'antd';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import LockIcon from '@mui/icons-material/Lock';
-import {useNavigate} from "react-router-dom";
-// Definimos la estructura de un comentario para TypeScript
+import { useNavigate } from "react-router-dom";
+
 interface Comentario {
     usuario: string;
     comentario: string;
@@ -22,7 +22,7 @@ interface SeccionComentariosProps {
     onEnviarComentario: (nuevoComentario: { puntuacion: number; comentario: string }) => void;
 }
 
-const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarComentario }: SeccionComentariosProps) => {
+const SeccionComentarios = ({ comentariosIniciales, usuarioLogueado, onEnviarComentario }: SeccionComentariosProps) => {
     const [form] = Form.useForm();
     const navigate = useNavigate();
     const [starsUser, setStarsUser] = useState([false, false, false, false, false]);
@@ -35,15 +35,17 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
 
         setBotonDeshabilitado(!(tieneTexto && tieneEstrellas));
     };
+
     const manejarEstrellas = (index: number) => {
         const newStars = starsUser.map((_, i) => i <= index);
         setStarsUser(newStars);
-        validarFormulario(newStars); // 👈 Le pasamos 'newStars' directamente sin esperar a React
+        validarFormulario(newStars);
     };
 
     const manejarCambioValores = () => {
         validarFormulario(starsUser);
     };
+
     const ETIQUETAS_ESTRELLAS = ["Pésimo", "Regular", "Bueno", "Muy Bueno", "¡Excelente!"];
     const totalEstrellasSeleccionadas = starsUser.filter(Boolean).length;
 
@@ -64,7 +66,6 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
                 <Grid item xs={12} md={5}>
                     <Paper sx={{ p: 4, borderRadius: "25px", border: "1px solid #eee", boxShadow: 'none' }}>
                         {usuarioLogueado ? (
-                            /* 🟢 2. SI HAY USUARIO: Muestra tu formulario exactamente igual */
                             <>
                                 <Typography variant="h6" fontWeight="800" color="#0f172a" gutterBottom>
                                     Deja tu opinión
@@ -73,7 +74,7 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
                                     ¿Cómo fue tu experiencia en este sitio?
                                 </Typography>
 
-                                {/* ⭐️ RATING CON ETIQUETA DINÁMICA (Sin solapamiento) */}
+                                {/* ⭐️ RATING */}
                                 <Box sx={{ mb: 3 }}>
                                     <Stack direction="row" alignItems="center" spacing={0.5}>
                                         {starsUser.map((active, i) => (
@@ -100,11 +101,8 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
                                                 fontWeight="800"
                                                 sx={{
                                                     ml: 1,
-                                                    px: 1.5,
-                                                    py: 0.4,
-                                                    borderRadius: "20px",
-                                                    bgcolor: "#fef3c7",
-                                                    color: "#d97706"
+                                                    color: "#d97706",
+                                                    fontSize: "0.85rem"
                                                 }}
                                             >
                                                 {ETIQUETAS_ESTRELLAS[totalEstrellasSeleccionadas - 1]}
@@ -113,23 +111,19 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
                                     </Stack>
                                 </Box>
 
-                                {/* ✍️ FORMULARIO DE TEXTO */}
+                                {/* ✍️ TEXTAREA CON BORDE AZUL CONTINUO */}
                                 <Form form={form} onValuesChange={manejarCambioValores} onFinish={alEnviar}>
                                     <Form.Item name="comentario" style={{ marginBottom: "20px" }}>
-                                        <TextField
-                                            fullWidth
-                                            multiline
+                                        <Input.TextArea
                                             rows={4}
                                             placeholder="Cuéntanos los detalles de tu visita, consejos sobre transporte, o qué fue lo que más te gustó..."
-                                            sx={{
-                                                "& .MuiOutlinedInput-root": {
-                                                    borderRadius: "16px",
-                                                    backgroundColor: "#f8fafc",
-                                                    fontSize: "0.95rem",
-                                                    "& fieldset": { borderColor: "#e2e8f0" },
-                                                    "&:hover fieldset": { borderColor: "#cbd5e1" },
-                                                    "&.Mui-focused fieldset": { borderColor: "#0ea5e9", borderWidth: "2px" }
-                                                }
+                                            style={{
+                                                borderRadius: "20px",
+                                                backgroundColor: "#f8fafc",
+                                                fontSize: "0.95rem",
+                                                border: "2px solid #38bdf8",
+                                                padding: "12px 16px",
+                                                outline: "none"
                                             }}
                                         />
                                     </Form.Item>
@@ -153,7 +147,6 @@ const SeccionComentarios = ({ comentariosIniciales,usuarioLogueado, onEnviarCome
                                 </Form>
                             </>
                         ) : (
-                            /* 🔒 3. SI NO HAY USUARIO: Muestra banner para redirigir a Login */
                             <Box sx={{ textAlign: 'center', py: 2 }}>
                                 <LockIcon sx={{ fontSize: 48, color: '#0ea5e9', mb: 1.5 }} />
                                 <Typography variant="h6" fontWeight="bold" gutterBottom>
