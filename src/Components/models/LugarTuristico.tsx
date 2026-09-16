@@ -8,6 +8,7 @@ export interface LugarTuristico {
     ciudad: string;
     departamento?: string;
     puntuacion:number;
+    vistas?:number;
     opiniones?:Opinion[];
     pais:string;
     minimo:number;

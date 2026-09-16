@@ -7,9 +7,7 @@ import {
   Grid,
   IconButton,
   Paper,
-  TextField,
   Typography,
-  Avatar,
   Divider,
   Stack,
   Chip,
@@ -41,7 +39,6 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 // Ant Design Components
 import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
-import { imgPerfil } from "../../Layouts/Images/imagenPerfilPrueba";
 
 // Local Assets & Components
 import BannerImg from "../../Layouts/Images/Banner.png";
@@ -56,17 +53,17 @@ import SeccionComentarios from "./Seccions/Comments";
 import { obtenerLabelFormateado } from "../models/OpcionesDestinos";
 import { calcularDistanciaKm } from "../../services/ValidacionLugar";
 import { useAuth } from "../../auth/AuthProvider";
-import {eliminarFavorito, guardarFavorito, verificarEsFavorito} from "../../services/usuariosService";
+import { eliminarFavorito, guardarFavorito, verificarEsFavorito } from "../../services/usuariosService";
 
 const Pagina2 = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm<any>();
-  const { usuario, rol } = useAuth();
+  const { usuario } = useAuth();
 
   // Estados generales
-  const [activeTab, setActiveTab] = useState<string>("");
-  const [showlocalizacion, setshowlocalizacion] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("auto");
+  const [showlocalizacion, setshowlocalizacion] = useState<boolean>(true);
   const [cargando, setCargando] = useState<boolean>(true);
   const [restaurantesCercanos, setRestaurantesCercanos] = useState<LugarTuristico[]>([]);
   const [hotelesCercanos, setHotelesCercanos] = useState<LugarTuristico[]>([]);
@@ -82,7 +79,6 @@ const Pagina2 = () => {
   const [esFavorito, setEsFavorito] = useState<boolean>(false);
   const [procesandoFavorito, setProcesandoFavorito] = useState<boolean>(false);
 
-  // Manejador del flujo de reporte
   const handleAbrirModalReporte = () => {
     if (!usuario) {
       message.warning("Debes iniciar sesión para reportar un sitio.");
@@ -100,6 +96,7 @@ const Pagina2 = () => {
 
     if (!info?.id || !usuario) return;
 
+
     setEnviandoReporte(true);
     const exito = await reportarLugar(info.id, usuario.uid, motivoReporte);
     setEnviandoReporte(false);
@@ -113,7 +110,6 @@ const Pagina2 = () => {
     }
   };
 
-  // ❤️ Manejador para alternar Favorito
   const handleToggleFavorito = async () => {
     if (!usuario) {
       message.warning("Debes iniciar sesión para guardar en favoritos.");
@@ -146,7 +142,6 @@ const Pagina2 = () => {
     setProcesandoFavorito(false);
   };
 
-  // Carga de datos del sitio
   const cargarLugar = useCallback(async () => {
     if (!id) {
       console.error("No se proporcionó un ID en la URL");
@@ -266,15 +261,15 @@ const Pagina2 = () => {
 
   return (
       <>
-        <Box sx={{ bgcolor: "#fdfdfd", minHeight: "100vh" }}>
+        <Box sx={{ bgcolor: "#fdfdfd", minHeight: "100vh", overflowX: "hidden" }}>
 
-          {/* BANNER PRINCIPAL */}
+          {/* BANNER PRINCIPAL RESPONSIVE */}
           <Paper
               sx={{
                 position: "relative",
-                height: "400px",
+                height: { xs: "220px", sm: "320px", md: "400px" },
                 color: "#fff",
-                borderRadius: "0 0 60px 60px",
+                borderRadius: { xs: "0 0 28px 28px", md: "0 0 60px 60px" },
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 backgroundImage: info?.imagenes && info?.imagenes[0]
@@ -282,27 +277,33 @@ const Pagina2 = () => {
                         ? info?.imagenes[0]
                         : `data:image/jpeg;base64,${info?.imagenes[0]}`})`
                     : 'url(https://via.placeholder.com/800x400?text=Cargando+Imagen...)',
-                mb: 5,
+                mb: { xs: 3, md: 5 },
                 backgroundColor: "rgba(0,0,0,0.3)",
                 backgroundBlendMode: "overlay"
               }}
           />
 
           {/* CONTENIDO PRINCIPAL */}
-          <Box sx={{ px: { xs: 2, md: 8 } }}>
-            <Grid container spacing={5}>
+          <Box sx={{ px: { xs: 2, sm: 4, md: 8 } }}>
+            <Grid container spacing={{ xs: 3, md: 5 }}>
 
               {/* COLUMNA IZQUIERDA */}
               <Grid item xs={12} md={7}>
 
-                {/* ENCABEZADO: TÍTULO + FAVORITOS + REPORTE */}
+                {/* ENCABEZADO */}
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-                  <Typography variant="h4" fontWeight="800">
+                  <Typography
+                      variant="h4"
+                      fontWeight="800"
+                      sx={{
+                        fontSize: { xs: "1.35rem", sm: "1.8rem", md: "2.125rem" },
+                        wordBreak: "break-word"
+                      }}
+                  >
                     {info?.nombre}
                   </Typography>
 
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    {/* ❤️ BOTÓN DE FAVORITOS (Visibilidad para usuarios registrados) */}
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
                     {usuario && (
                         <IconButton
                             onClick={handleToggleFavorito}
@@ -319,7 +320,6 @@ const Pagina2 = () => {
                         </IconButton>
                     )}
 
-                    {/* 🚩 BOTÓN DE REPORTAR (Solo visible si hay usuario logueado) */}
                     {usuario && (
                         <IconButton
                             onClick={handleAbrirModalReporte}
@@ -341,31 +341,33 @@ const Pagina2 = () => {
                   <Typography variant="body2" color="text.secondary" fontWeight="bold">
                     ({listaOpiniones.length} Opiniones)
                   </Typography>
-                  <Box sx={{ color: "#4dbce9" }}>
+                  <Box sx={{ color: "#4dbce9", display: "flex" }}>
                     {stars.map((s: string, i: number) => (
-                        s === "1" ? <StarIcon key={i} /> : s === "0.5" ? <StarHalfIcon key={i} /> : <StarBorderIcon key={i} />
+                        s === "1" ? <StarIcon key={i} fontSize="small" /> : s === "0.5" ? <StarHalfIcon key={i} fontSize="small" /> : <StarBorderIcon key={i} fontSize="small" />
                     ))}
                   </Box>
                 </Stack>
 
-                <Typography variant="body1" color="text.secondary" textAlign="justify" sx={{ fontSize: "1.1rem", mb: 4 }}>
+                <Typography variant="body1" color="text.secondary" textAlign="justify" sx={{ fontSize: { xs: "0.95rem", md: "1.1rem" }, mb: 3 }}>
                   {info?.descripcion}.
                 </Typography>
 
-                {/* ETIQUETAS, SERVICIOS Y CARACTERÍSTICAS */}
+                {/* ETIQUETAS */}
                 <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 1, mb: 3 }}>
                   {info?.petFriendly && (
                       <Chip
-                          icon={<PetsIcon style={{ fontSize: 18, color: "#15803d" }} />}
+                          icon={<PetsIcon style={{ fontSize: 16, color: "#15803d" }} />}
                           label="Pet Friendly"
+                          size="small"
                           sx={{ bgcolor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", fontWeight: "bold" }}
                       />
                   )}
 
                   {info?.accesibleSillaRuedas && (
                       <Chip
-                          icon={<AccessibleIcon style={{ fontSize: 18, color: "#0369a1" }} />}
+                          icon={<AccessibleIcon style={{ fontSize: 16, color: "#0369a1" }} />}
                           label="Acceso Silla de Ruedas"
+                          size="small"
                           sx={{ bgcolor: "#f0f9ff", color: "#075985", border: "1px solid #bae6fd", fontWeight: "bold" }}
                       />
                   )}
@@ -374,6 +376,7 @@ const Pagina2 = () => {
                       <Chip
                           key={`tag-${idx}`}
                           label={obtenerLabelFormateado(tag)}
+                          size="small"
                           sx={{ bgcolor: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", fontWeight: "bold" }}
                       />
                   ))}
@@ -382,6 +385,7 @@ const Pagina2 = () => {
                       <Chip
                           key={`serv-${idx}`}
                           label={obtenerLabelFormateado(serv)}
+                          size="small"
                           sx={{ bgcolor: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d", fontWeight: "bold" }}
                       />
                   ))}
@@ -391,8 +395,8 @@ const Pagina2 = () => {
                 {info?.queLlevar && (
                     <Box
                         sx={{
-                          mb: 4,
-                          p: 2.5,
+                          mb: 3,
+                          p: { xs: 2, md: 2.5 },
                           bgcolor: "#f8fafc",
                           borderRadius: "16px",
                           border: "1px solid #e2e8f0",
@@ -411,37 +415,52 @@ const Pagina2 = () => {
                     </Box>
                 )}
 
-                <Stack direction="row" spacing={2} sx={{ mb: 5 }}>
-                  <button
-                      className={`btn-pill ${activeTab === "restaurante" ? "active" : ""}`}
-                      onClick={() => handleFilter("restaurante")}
-                  >
-                    Restaurantes <DinnerDiningIcon sx={{ ml: 1, color: "orange" }} />
-                  </button>
+                {/* BOTONES CON MULTI-FILA AUTOMÁTICA Y ESPACIADO FLEXIBLE EN MÓVIL */}
+                <Stack
+                    direction="row"
+                    sx={{
+                      mb: 4,
+                      gap: { xs: 1, sm: 2 },
+                      flexWrap: "wrap"
+                    }}
+                >
+                  {(info?.categoria === 'aventura' || info?.categoria === 'Área Natural') && (
+                      <>
+                        <button
+                            className={`btn-pill ${activeTab === "restaurante" ? "active" : ""}`}
+                            onClick={() => handleFilter("restaurante")}
+                            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                        >
+                          Restaurantes <DinnerDiningIcon sx={{ ml: 0.5, fontSize: 18, color: "orange" }} />
+                        </button>
 
-                  <button
-                      className={`btn-pill ${activeTab === "hotel" ? "active" : ""}`}
-                      onClick={() => handleFilter("hotel")}
-                  >
-                    Hoteles <HotelIcon sx={{ ml: 1, color: "red" }} />
-                  </button>
+                        <button
+                            className={`btn-pill ${activeTab === "hotel" ? "active" : ""}`}
+                            onClick={() => handleFilter("hotel")}
+                            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                        >
+                          Hoteles <HotelIcon sx={{ ml: 0.5, fontSize: 18, color: "red" }} />
+                        </button>
+                      </>
+                  )}
 
                   <button
                       className={`btn-pill ${activeTab === "auto" ? "active" : ""}`}
                       onClick={() => handleFilter("auto")}
+                      style={{ padding: '8px 14px', fontSize: '0.85rem' }}
                   >
-                    Localizacion <LocationOnIcon  sx={{ ml: 1, color: "gold" }} />
+                    Localizacion <LocationOnIcon sx={{ ml: 0.5, fontSize: 18, color: "gold" }} />
                   </button>
                 </Stack>
 
                 {cardseleccionado.length > 0 && (
                     <div className="carousel-wrapper">
-                      <Typography variant="h6" fontWeight="800" sx={{ mb: 3 }}>
+                      <Typography variant="h6" fontWeight="800" sx={{ mb: 2, fontSize: "1.1rem" }}>
                         {activeTab === "restaurante" ? "Restaurantes Cercanos (Máx 3 km)" : "Hoteles Cercanos (Máx 3 km)"}
                       </Typography>
                       <div className="slider-container">
                         <button className="nav-btn left" onClick={() => scroll("left")}>
-                          <ArrowBackIosIcon />
+                          <ArrowBackIosIcon fontSize="small" />
                         </button>
 
                         <div className="cards-track" ref={scrollRef}>
@@ -451,7 +470,7 @@ const Pagina2 = () => {
                         </div>
 
                         <button className="nav-btn right" onClick={() => scroll("right")}>
-                          <ArrowForwardIosIcon />
+                          <ArrowForwardIosIcon fontSize="small" />
                         </button>
                       </div>
                     </div>
@@ -460,7 +479,7 @@ const Pagina2 = () => {
                 {(activeTab === "restaurante" || activeTab === "hotel") && cardseleccionado.length === 0 && (
                     <Box
                         sx={{
-                          p: 4,
+                          p: { xs: 2.5, md: 4 },
                           mb: 4,
                           textAlign: "center",
                           bgcolor: "#f8fafc",
@@ -468,33 +487,36 @@ const Pagina2 = () => {
                           border: "2px dashed #cbd5e1",
                         }}
                     >
-                      <Typography variant="subtitle1" fontWeight="800" color="#334155" gutterBottom>
+                      <Typography variant="subtitle1" fontWeight="800" color="#334155" gutterBottom sx={{ fontSize: "0.95rem" }}>
                         No hay {activeTab === "restaurante" ? "restaurantes" : "hoteles"} registrados en un radio de 3 km 📍
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.82rem" }}>
                         Explora otros sitios de la plataforma o revisa la pestaña de localización en el mapa.
                       </Typography>
                     </Box>
                 )}
 
+                {/* CONTENEDOR DEL MAPA ADAPTADO PARA MÓVILES */}
                 {showlocalizacion && (
-                    <div style={{ padding: '32px' }}>
-                      <h2>{info?.nombre}</h2>
+                    <Box sx={{ py: { xs: 1, md: 3 }, width: "100%", overflow: "hidden" }}>
+                      <Typography variant="h6" fontWeight="800" sx={{ mb: 1.5, fontSize: "1.1rem" }}>
+                        {info?.nombre}
+                      </Typography>
                       <MapaUbicacion
                           lat={info?.latitud || 0}
                           lng={info?.longitud || 0}
                           nombre={info?.nombre || ""}
                       />
-                    </div>
+                    </Box>
                 )}
 
               </Grid>
 
               {/* COLUMNA DERECHA (SIDEBAR) */}
               <Grid item xs={12} md={5}>
-                <Paper sx={{ borderRadius: "24px", overflow: "hidden", boxShadow: "0 20px 40px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0" }}>
+                <Paper sx={{ borderRadius: "24px", overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0" }}>
 
-                  <Box sx={{ height: "180px", overflow: "hidden" }}>
+                  <Box sx={{ height: { xs: "140px", md: "180px" }, overflow: "hidden" }}>
                     <img
                         src={info?.imagenes && info.imagenes.length > 0
                             ? (info.imagenes[0].startsWith('data:') ? info.imagenes[0] : `data:image/jpeg;base64,${info.imagenes[0]}`)
@@ -504,13 +526,13 @@ const Pagina2 = () => {
                     />
                   </Box>
 
-                  <Box sx={{ p: 4 }}>
+                  <Box sx={{ p: { xs: 2.5, md: 4 } }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                      <Typography variant="overline" color="primary" fontWeight="900" sx={{ fontSize: "0.85rem" }}>
+                      <Typography variant="overline" color="primary" fontWeight="900" sx={{ fontSize: "0.8rem" }}>
                         {info?.categoria?.toUpperCase() || "DESTINO"}
                       </Typography>
                       {info?.puntuacion ? (
-                          <Chip label={info.puntuacion} icon={<StarIcon style={{ color: 'white', fontSize: 16 }} />} sx={{ bgcolor: "#f59e0b", color: "white", fontWeight: "bold" }} />
+                          <Chip label={info.puntuacion} icon={<StarIcon style={{ color: 'white', fontSize: 14 }} />} sx={{ bgcolor: "#f59e0b", color: "white", fontWeight: "bold" }} size="small" />
                       ) : null}
                     </Stack>
 
@@ -518,13 +540,13 @@ const Pagina2 = () => {
                       <Typography variant="caption" color="text.secondary" fontWeight="bold">
                         {info?.categoria === "hotel" ? "Precio Promedio Noche" : info?.categoria === "restaurante" ? "Precio Promedio Plato" : "Presupuesto Sugerido"}
                       </Typography>
-                      <Typography variant="h4" fontWeight="900" color="#0ea5e9">
+                      <Typography variant="h5" fontWeight="900" color="#0ea5e9">
                         ${Number(info?.minimo || 0).toLocaleString("es-CO")}{" "}
-                        <Typography component="span" variant="body1" fontWeight="bold">COP</Typography>
+                        <Typography component="span" variant="body2" fontWeight="bold">COP</Typography>
                       </Typography>
                     </Box>
 
-                    <Divider sx={{ my: 3 }} />
+                    <Divider sx={{ my: 2.5 }} />
 
                     {(info?.rnt || info?.nit || info?.unescoId) && (
                         <Box sx={{ mb: 3 }}>
@@ -546,7 +568,7 @@ const Pagina2 = () => {
                     )}
 
                     {info?.categoria === 'aventura' && info?.dificultad && (
-                        <Box sx={{ mb: 3, p: 2, bgcolor: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                        <Box sx={{ mb: 3, p: 1.8, bgcolor: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
                           <Stack direction="row" alignItems="center" spacing={1}>
                             <LandscapeIcon sx={{ color: "#64748b" }} />
                             <Box>
@@ -563,7 +585,7 @@ const Pagina2 = () => {
                             block
                             size="large"
                             icon={<WhatsAppIcon />}
-                            style={{ backgroundColor: '#22c55e', height: '50px', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 'bold' }}
+                            style={{ backgroundColor: '#22c55e', height: '46px', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 'bold' }}
                             onClick={() => {
                               const whatsapp = info.contactoWhatsapp;
                               if (whatsapp) {
@@ -609,12 +631,12 @@ const Pagina2 = () => {
           </Box>
         </Box>
 
-        {/* 🚩 MODAL DE REPORTE CON POPCONFIRM */}
+        {/* 🚩 MODAL DE REPORTE */}
         <Modal
             title={
               <Stack direction="row" alignItems="center" spacing={1}>
                 <FlagIcon sx={{ color: "#ef4444" }} />
-                <Typography variant="h6" fontWeight="800">Reportar este sitio</Typography>
+                <Typography variant="h6" fontWeight="800" sx={{ fontSize: "1.05rem" }}>Reportar este sitio</Typography>
               </Stack>
             }
             open={modalReporte}
@@ -623,8 +645,10 @@ const Pagina2 = () => {
               setMotivoReporte("");
             }}
             footer={null}
+            width="90%"
+            style={{ maxWidth: "480px" }}
         >
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1, fontSize: "0.85rem" }}>
             ¿Hay algo engañoso o inapropiado en este destino? Escribe el motivo para que el equipo de moderadores lo revise.
           </Typography>
 
@@ -636,7 +660,7 @@ const Pagina2 = () => {
               style={{ borderRadius: "12px", marginBottom: "20px" }}
           />
 
-          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+          <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
             <Button onClick={() => setModalReporte(false)}>
               Cancelar
             </Button>

@@ -17,6 +17,7 @@ import Logout from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import FlagIcon from '@mui/icons-material/Flag';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import BuildIcon from '@mui/icons-material/Build';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
@@ -352,6 +353,13 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                             </ListItemIcon>
                             Reportes
                         </MenuItem>
+                        <MenuItem component={RouterLink} to="/admin/usuarios">
+                            <ListItemIcon>
+                                <ManageAccountsIcon fontSize="small" color="success" />
+                            </ListItemIcon>
+                            Gestión de Usuarios
+                        </MenuItem>
+
 
                         <MenuItem component={RouterLink} to="/admin/scrapper">
                             <ListItemIcon>
@@ -359,12 +367,14 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                             </ListItemIcon>
                             Scrapper / Migrador
                         </MenuItem>
+                        {/*
                         <MenuItem onClick={ejecutarMigración}>
                             <ListItemIcon>
                                 <AutoFixHighIcon fontSize="small" color="secondary" />
                             </ListItemIcon>
                             Migrar BD Vieja
                         </MenuItem>
+                        */}
                     </>
                 )}
                 <Divider />
@@ -412,13 +422,19 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                 <ListItem disablePadding>
                                     <ListItemButton onClick={() => irANavegacion("/admin/pendientes")}>
                                         <ListItemIcon><HourglassTopIcon color="warning" /></ListItemIcon>
-                                        <ListItemText primary="Pendientes" />
+                                        <ListItemText primary="Destinos Pendientes" />
                                     </ListItemButton>
                                 </ListItem>
                                 <ListItem disablePadding>
                                     <ListItemButton onClick={() => irANavegacion("/admin/reportes")}>
                                         <ListItemIcon><FlagIcon color="error" /></ListItemIcon>
                                         <ListItemText primary="Reportes" />
+                                    </ListItemButton>
+                                </ListItem>
+                                <ListItem disablePadding>
+                                    <ListItemButton onClick={() => irANavegacion("/admin/usuarios")}>
+                                        <ListItemIcon><ManageAccountsIcon color="success" /></ListItemIcon>
+                                        <ListItemText primary="Gestión de Usuarios" />
                                     </ListItemButton>
                                 </ListItem>
                                 <ListItem disablePadding>

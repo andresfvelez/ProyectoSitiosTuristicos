@@ -26,6 +26,7 @@ import CryptoJS from "crypto-js";
 import emailjs from "@emailjs/browser";
 import { db, auth } from "../firebase/firebaseConfig";
 import { UserProfileData } from "../Components/models/Usuarios";
+export type AccionEstadoUsuario = 'activar' | 'suspender' | 'banear';
 
 // 🌐 Configuración de Proveedores para Web y Móvil
 const googleProvider = new GoogleAuthProvider();
@@ -149,15 +150,15 @@ export const enviarCorreoRecuperacion = async (
     }
 };
 
-// 🛑 Verificar si el usuario se encuentra bloqueado
-export const verificarUsuarioBloqueado = async (uid: string): Promise<boolean> => {
+//  Verificar si el usuario se encuentra bloqueado
+export const verificarUsuarioBloqueado = async (uid: string): Promise<any> => {
     try {
         const userDocRef = doc(db, "usuarios", uid);
         const userSnap = await getDoc(userDocRef);
-        return userSnap.exists() && userSnap.data()?.estado === "bloqueado";
+        return userSnap.exists() ? userSnap.data() : null;
     } catch (error) {
         console.error("Error al verificar estado del usuario:", error);
-        return false;
+        return null;
     }
 };
 
@@ -293,6 +294,68 @@ export const obtenerFotoPerfilUsuario = async (uid: string): Promise<{ id: strin
     return null;
 };
 
+
+export const cambiarRolUsuario = async (uid: string, nuevoRol: string): Promise<boolean> => {
+    try {
+        const userRef = doc(db, "usuarios", uid);
+
+        await updateDoc(userRef, { rol: nuevoRol });
+
+        return true;
+    } catch (error) {
+        console.error("Error al cambiar el rol del usuario:", error);
+        return false;
+    }
+};
+export const gestionarEstadoUsuario = async (
+    uid: string,
+    accion: AccionEstadoUsuario,
+    opciones?: { diasSuspension?: number; motivo?: string } // Opcional según la acción
+): Promise<boolean> => {
+    try {
+        const userRef = doc(db, "usuarios", uid);
+        let dataActualizacion: any = {};
+
+        switch (accion) {
+            case 'activar':
+                dataActualizacion = {
+                    estado: "activo",
+                    bloqueadoHasta: null,
+                    motivoSancion: null
+                };
+                break;
+
+            case 'suspender':
+                const dias = opciones?.diasSuspension || 1;
+                const fechaFinMs = Date.now() + (dias * 24 * 60 * 60 * 1000); // Días a milisegundos
+
+                dataActualizacion = {
+                    estado: "suspendido",
+                    bloqueadoHasta: fechaFinMs,
+                    motivoSancion: opciones?.motivo || "Comportamiento inadecuado"
+                };
+                break;
+
+            case 'banear':
+                // Bloqueo permanente
+                dataActualizacion = {
+                    estado: "bloqueado",
+                    bloqueadoHasta: null,
+                    motivoSancion: opciones?.motivo || "Violación grave de políticas"
+                };
+                break;
+        }
+
+        // Ejecuta la actualización en Firestore
+        await updateDoc(userRef, dataActualizacion);
+        return true;
+    } catch (error) {
+        console.error(`Error al ejecutar acción '${accion}' en el usuario:`, error);
+        return false;
+    }
+};
+
+
 export const actualizarPerfilUsuario = async (
     uid: string,
     datos: {
@@ -356,6 +419,20 @@ export const eliminarFotoPerfilUsuario = async (fotoDocId: string): Promise<void
     await deleteDoc(fotoRef);
 };
 
+
+export const obtenerTodosLosUsuarios = async (): Promise<UserProfileData[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, "usuarios"));
+        return snapshot.docs.map(docSnap => ({
+            uid: docSnap.id,
+            ...docSnap.data()
+        } as UserProfileData));
+    } catch (error) {
+        console.error("Error al obtener la lista general de usuarios:", error);
+        return [];
+    }
+};
+
 // ❤️ Gestión de Favoritos
 export const verificarEsFavorito = async (lugarId: string, usuarioId: string): Promise<boolean> => {
     try {
@@ -402,3 +479,4 @@ export const eliminarFavorito = async (lugarId: string, usuarioId: string): Prom
         return false;
     }
 };
+

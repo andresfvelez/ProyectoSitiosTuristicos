@@ -14,10 +14,58 @@ import {
 import { db } from '../firebase/firebaseConfig';
 import { LugarTuristico, Opinion } from '../Components/models/LugarTuristico';
 
-// 🚀 MEJORA 1: Obtener lugares del catálogo de forma ligera (sin descargar la BD completa de opiniones)
-export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
-  console.log("Obteniendo lugares del catálogo...");
+// ⚡ ALGORITMO DE COMPRESIÓN LIVIANO CON CANVAS (Evita bloqueos de RAM)
+export const comprimirImagen = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
 
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      const MAX_SIZE = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height = Math.round(height * (MAX_SIZE / width));
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width = Math.round(width * (MAX_SIZE / height));
+          height = MAX_SIZE;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error("No se pudo obtener el contexto Canvas"));
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.45));
+    };
+
+    img.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
+    };
+
+    img.src = objectUrl;
+  });
+};
+
+
+
+// 🚀 OBTENER LUGARES DEL CATÁLOGO
+export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
   try {
     const q = query(
         collection(db, 'lugares_turisticos_scrapped'),
@@ -30,7 +78,7 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
       return {
         id: docSnap.id,
         ...data,
-        opiniones: [] as Opinion[], // Se leen individualmente al abrir el detalle del lugar
+        opiniones: [] as Opinion[],
         puntuacion: data.puntuacion || 0
       } as LugarTuristico;
     });
@@ -40,49 +88,11 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
   }
 };
 
-// 🤖 MEJORA 2: Función dedicada para la IA (carga masiva de opiniones solo cuando se consulte la IA)
-export const obtenerContextoParaIA = async (): Promise<LugarTuristico[]> => {
-  try {
-    const [snapshotLugares, snapshotOpiniones] = await Promise.all([
-      getDocs(query(collection(db, 'lugares_turisticos_scrapped'), where('confirmado', '==', true))),
-      getDocs(collection(db, 'opiniones_lugares'))
-    ]);
 
-    const opinionesPorLugar: Record<string, Opinion[]> = {};
 
-    snapshotOpiniones.docs.forEach(docSnap => {
-      const data = docSnap.data() as Opinion;
-      if (!opinionesPorLugar[data.lugarId]) {
-        opinionesPorLugar[data.lugarId] = [];
-      }
-      opinionesPorLugar[data.lugarId].push(data);
-    });
 
-    return snapshotLugares.docs.map(docSnap => {
-      const data = docSnap.data();
-      const lugarId = docSnap.id;
-      const opiniones = opinionesPorLugar[lugarId] || [];
 
-      let puntuacionCalculada = data.puntuacion || 0;
-      if (opiniones.length > 0) {
-        const suma = opiniones.reduce((acc, op) => acc + (op.puntuacion || 0), 0);
-        puntuacionCalculada = Number((suma / opiniones.length).toFixed(1));
-      }
 
-      return {
-        id: lugarId,
-        ...data,
-        opiniones,
-        puntuacion: puntuacionCalculada
-      } as LugarTuristico;
-    });
-  } catch (error) {
-    console.error("Error obteniendo contexto para la IA:", error);
-    return [];
-  }
-};
-
-// 🛠️ MEJORA 3: Migrador para asignar 'confirmado: true' a registros antiguos que no tengan el campo
 export const migrarDocumentosViejos = async (): Promise<number> => {
   try {
     const snapshot = await getDocs(collection(db, 'lugares_turisticos_scrapped'));
@@ -110,7 +120,6 @@ export const migrarDocumentosViejos = async (): Promise<number> => {
 
 export const obtenerImagenesPorDestino = async (idDestino: string): Promise<string[]> => {
   try {
-    console.log("obteniendo imagenes");
     const q = query(
         collection(db, "imagenes_b64"),
         where("idVinculado", "==", idDestino)
@@ -167,10 +176,7 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
     const lugarRef = doc(db, 'lugares_turisticos_scrapped', id);
     const lugarSnap = await getDoc(lugarRef);
 
-    if (!lugarSnap.exists()) {
-      console.warn("No se encontró el lugar con ID:", id);
-      return null;
-    }
+    if (!lugarSnap.exists()) return null;
 
     const lugarData = lugarSnap.data();
 
@@ -200,36 +206,6 @@ export const obtenerLugarPorId = async (id: string): Promise<LugarTuristico | nu
     console.error("Error al obtener detalle del lugar:", error);
     return null;
   }
-};
-
-const comprimirImagen = (file: File): Promise<string> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-
-        const MAX_WIDTH = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        resolve(canvas.toDataURL('image/jpeg', 0.4));
-      };
-    };
-  });
 };
 
 export const guardarDestino = async (
@@ -279,21 +255,11 @@ export const guardarDestino = async (
     const destinoDoc = await addDoc(collection(db, "lugares_turisticos_scrapped"), nuevoLugar);
     const idDestino = destinoDoc.id;
 
-    const promesasImagenes = archivos
-        .filter(f => f !== null)
-        .map(async (file) => {
-          const b64Comprimido = await comprimirImagen(file);
-          return addDoc(collection(db, "imagenes_b64"), {
-            idVinculado: idDestino,
-            esLugar: true,
-            base64: b64Comprimido,
-            fechaCreacion: Date.now()
-          });
-        });
+    if (archivos && archivos.length > 0) {
+      await guardarImagenesDestino(idDestino, archivos);
+    }
 
-    await Promise.all(promesasImagenes);
     return idDestino;
-
   } catch (error) {
     console.error("Error guardando destino en Firestore:", error);
     throw error;
@@ -326,9 +292,7 @@ export const agregarOpinionLugar = async (
     }
 
     const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
-    await updateDoc(lugarRef, {
-      puntuacion: nuevaPuntuacionMedia
-    });
+    await updateDoc(lugarRef, { puntuacion: nuevaPuntuacionMedia });
 
     return true;
   } catch (error) {
@@ -376,6 +340,51 @@ export const actualizarDestino = async (
   });
 };
 
+// 📸 GUARDAR LOTE DE NUEVAS IMÁGENES
+export const guardarImagenesDestino = async (idDestino: string, archivos: File[]): Promise<void> => {
+  if (!archivos || archivos.length === 0) return;
+
+  const promesas = archivos.filter(Boolean).map(async (file) => {
+    const b64 = await comprimirImagen(file);
+    return addDoc(collection(db, "imagenes_b64"), {
+      idVinculado: idDestino,
+      esLugar: true,
+      base64: b64,
+      fechaCreacion: Date.now()
+    });
+  });
+
+  await Promise.all(promesas);
+};
+
+// 🗑️ ELIMINAR IMÁGENES ESPECÍFICAS DE LA BD (Igual que en usuariosService)
+export const eliminarImagenesDestino = async (idDestino: string, base64sAEliminar: string[]): Promise<void> => {
+  if (!base64sAEliminar || base64sAEliminar.length === 0) return;
+
+  try {
+    const q = query(
+        collection(db, "imagenes_b64"),
+        where("idVinculado", "==", idDestino)
+    );
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    let eliminados = 0;
+
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (base64sAEliminar.includes(data.base64)) {
+        batch.delete(docSnap.ref);
+        eliminados++;
+      }
+    });
+
+    if (eliminados > 0) {
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error("Error al eliminar imágenes de Firestore:", error);
+  }
+};
 export const reportarLugar = async (
     lugarId: string,
     usuarioId: string,
@@ -396,7 +405,7 @@ export const reportarLugar = async (
   }
 };
 
-export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) => {
+export const obtenerLugaresConReportesPendientes = async () => {
   try {
     const q = query(collection(db, "reportes"), where("estado", "==", "pendiente"));
     const snapshot = await getDocs(q);
@@ -415,6 +424,8 @@ export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) =
       }
     });
 
+    const umbral   = await obtenerLimiteReportes();
+
     const lugaresSuperanUmbral = Object.entries(reportesPorLugar).filter(
         ([_, reportes]) => reportes.length >= umbral
     );
@@ -424,9 +435,30 @@ export const obtenerLugaresConReportesPendientes = async (umbral: number = 20) =
     for (const [lugarId, reportes] of lugaresSuperanUmbral) {
       const lugarSnap = await getDoc(doc(db, "lugares_turisticos_scrapped", lugarId));
       if (lugarSnap.exists()) {
+
+        const reportesConNombre = await Promise.all(
+            reportes.map(async (repo) => {
+              let nombreCalculado = repo.usuarioId;
+
+              if (repo.usuarioId) {
+                const userSnap = await getDoc(doc(db, "usuarios", repo.usuarioId));
+                if (userSnap.exists()) {
+                  const uData = userSnap.data();
+                  console.log(uData)
+                  nombreCalculado = uData.fullName || uData.displayName || uData.email || repo.usuarioId;
+                }
+              }
+
+              return {
+                ...repo,
+                usuarioNombre: nombreCalculado // 👈 Guardamos el nombre real
+              };
+            })
+        );
+
         resultados.push({
           lugar: { id: lugarId, ...lugarSnap.data() },
-          reportes: reportes
+          reportes: reportesConNombre
         });
       }
     }
@@ -496,11 +528,28 @@ export const obtenerLugaresEnRevision = async () => {
       const qRep = query(collection(db, "reportes"), where("lugarId", "==", lugarId));
       const repSnap = await getDocs(qRep);
 
-      const reportes = repSnap.docs.map(r => ({ id: r.id, ...r.data() }));
+      const reportesRaw = repSnap.docs.map(r => ({ id: r.id, ...(r.data() as any) }));
+      const reportesConNombre = await Promise.all(
+          reportesRaw.map(async (repo) => {
+            let nombreCalculado = repo.usuarioId || "Usuario Desconocido";
 
+            if (repo.usuarioId) {
+              const userSnap = await getDoc(doc(db, "usuarios", repo.usuarioId));
+              if (userSnap.exists()) {
+                const uData = userSnap.data() as any;
+                nombreCalculado = uData.fullName || uData.displayName || uData.email || repo.usuarioId;
+              }
+            }
+
+            return {
+              ...repo,
+              usuarioNombre: nombreCalculado
+            };
+          })
+      );
       resultados.push({
         lugar: { id: lugarId, ...lugarData },
-        reportes: reportes
+        reportes: reportesConNombre
       });
     }
 
@@ -533,6 +582,32 @@ export const darDeBajaLugar = async (lugarId: string) => {
   }
 };
 
+export const obtenerLimiteReportes = async (): Promise<number> => {
+  try {
+    const docRef = doc(db, "Constantes", "reportes");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().cantidadMinima ?? 3;
+    }
+    return 3; // Valor por defecto si no existe aún el documento
+  } catch (error) {
+    console.error("Error al obtener límite de reportes:", error);
+    return 3;
+  }
+};
+
+export const guardarLimiteReportes = async (cantidadMinima: number): Promise<boolean> => {
+  try {
+    const docRef = doc(db, "Constantes", "reportes");
+    await setDoc(docRef, { cantidadMinima }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error("Error al guardar límite de reportes:", error);
+    return false;
+  }
+};
+
+
 export const eliminarDestino = async (destinoId: string, usuarioId: string): Promise<boolean> => {
   try {
     if (!destinoId) return false;
@@ -540,10 +615,7 @@ export const eliminarDestino = async (destinoId: string, usuarioId: string): Pro
     const docRef = doc(db, "lugares_turisticos_scrapped", destinoId);
     const docSnap = await getDoc(docRef);
 
-    if (!docSnap.exists()) {
-      console.error("El destino no existe o ya fue eliminado.");
-      return false;
-    }
+    if (!docSnap.exists()) return false;
 
     const datosOriginales = docSnap.data();
 
@@ -556,8 +628,6 @@ export const eliminarDestino = async (destinoId: string, usuarioId: string): Pro
     });
 
     await deleteDoc(docRef);
-
-    console.log(`✅ Destino ${destinoId} movido a auditoría y borrado del catálogo público.`);
     return true;
   } catch (error) {
     console.error("Error al eliminar el destino:", error);

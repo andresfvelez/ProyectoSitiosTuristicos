@@ -1,5 +1,7 @@
 // Antd
 import { Layout, Spin } from "antd";
+import { logEvent } from "firebase/analytics";
+import { analytics } from "./firebase/firebaseConfig";
 import React, {Suspense, useEffect, useState} from "react";
 import FooterComponent from "./Layouts/Footer";
 import Headers from "./Layouts/Header";
@@ -9,7 +11,7 @@ import PublicarDestino  from "./Components/Pages/PublicarDestino";
 import Profile from "./Components/Pages/Profile";
 import Login from "./Components/Pages/Login";
 import Register from "./Components/Pages/Register";
-import {BrowserRouter, Route, Routes} from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom"; //
 import MapaUbicacion from "./Components/Pages/Seccions/Localizacionleaf";
 import {obtenerImagenesPorDestino, obtenerLugares} from "./services/lugaresService";
 import {LugarTuristico} from "./Components/models/LugarTuristico";
@@ -22,6 +24,7 @@ import Reportes from "./Components/Pages/Reportes";
 import {RecaptchaMarca} from "./Components/Pages/Seccions/RecaptchaMarca";
 import {ScrollToTop} from "./Layouts/Utils/ScrollTop";
 import ScrapperMejorado from "./Components/Pages/ScrapperMejorado";
+import UsuariosAdmin from "./Components/Pages/UsuariosAdmin";
 const { Content } = Layout;
 
 // Rutas
@@ -35,23 +38,27 @@ const sections = [
 ];
 
 function App() {
+
+    const GestorAnalytics = () => {
+        const location = useLocation();
+
+        useEffect(() => {
+            if (analytics) {
+                logEvent(analytics, 'page_view', {
+                    page_location: window.location.href,
+                    page_path: location.pathname
+                });
+            }
+        }, [location]);
+
+        return null;
+    };
+
     const [lugares, setLugares] = useState<LugarTuristico[]>([]);
     useEffect(() => {
-        // Aquí traes tus 50-100 lugares de Firebase una sola vez
         const fetchLugares = async () => {
             const listaLugares = await obtenerLugares();
-            /*
-            const lugaresConFotos = await Promise.all(
-                listaLugares.map(async (lugar) => {
-                    const fotos = await obtenerImagenesPorDestino(lugar.id!);
-                    return {
-                        ...lugar,
-                        imagenes: fotos // Seteamos el array de strings Base64
-                    };
-                })
-            );
 
-             */
             setLugares(listaLugares);
 
         };
@@ -61,6 +68,7 @@ function App() {
         <AuthProvider>
         <BrowserRouter>
             <ScrollToTop />
+            <GestorAnalytics />
             <Suspense
                 fallback={
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -100,6 +108,7 @@ function App() {
                             <Route path="/admin/pendientes" element={<AprobarDestinos />} />
                             <Route path="/admin/reportes" element={<Reportes />} />
                             <Route path="/admin/scrapper" element={<ScrapperMejorado />} />
+                            <Route path="/admin/usuarios" element={<UsuariosAdmin />} />
                         </Route>
                         </Routes>
                     </Content>
