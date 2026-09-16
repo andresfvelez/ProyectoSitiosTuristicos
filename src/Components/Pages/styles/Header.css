@@ -80,3 +80,27 @@
     justify-content: center;
     color: #999;
 }
+
+/* 📱 AJUSTE EXCLUSIVO PARA PANTALLAS MÓVILES */
+@media (max-width: 576px) {
+    .custom-header {
+        height: auto !important;
+        min-height: 70px;
+        padding: 8px 12px !important;
+        flex-wrap: wrap;
+    }
+
+    .logo-text {
+        font-size: 1.15rem;
+    }
+
+    .avatar-wrapper, .user-icon-placeholder {
+        width: 36px;
+        height: 36px;
+    }
+
+    .custom-search-input {
+        width: 100% !important;
+        margin-top: 4px;
+    }
+}

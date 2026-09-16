@@ -31,7 +31,7 @@ import {
     obtenerClaveRecaptcha,
     obtenerPerfilUsuario,
     iniciarSesionGoogleHibrido,
-    iniciarSesionFacebookHibrido
+    iniciarSesionFacebookHibrido, gestionarEstadoUsuario
 } from '../../services/usuariosService';
 
 const theme = createTheme();
@@ -69,12 +69,40 @@ export default function Login() {
     };
 
     const verificarEstadoAcceso = async (uid: string): Promise<boolean> => {
-        const estaBloqueado = await verificarUsuarioBloqueado(uid);
-        if (estaBloqueado) {
+        const estado = await verificarUsuarioBloqueado(uid);
+        if (estado?.estado===("suspendido")) {
+            const fechaFinMs = estado?.bloqueadoHasta || 0;
+
+            //  Si el tiempo de suspensión ya se cumplió, reactiva automáticamente la cuenta
+            if (Date.now() >= fechaFinMs) {
+                await gestionarEstadoUsuario(uid, 'activar');
+                return true; // Permite el acceso
+            }
+
+            //  Si la suspensión sigue vigente, muestra el mensaje y cierra sesión
+            const msRestantes = Math.max(0, fechaFinMs - Date.now());
+            const diasRestantes = Math.ceil(msRestantes / (1000 * 60 * 60 * 24));
+
+            const fechaFormateada = new Date(fechaFinMs).toLocaleDateString('es-CO', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+
             await auth.signOut();
             mostrarAlerta({
                 title: 'Acceso Restringido',
-                text: 'Tu cuenta ha sido bloqueada por el administrador. Contacta con soporte.',
+                text: `Tu cuenta está suspendida por ${diasRestantes} día(s) (hasta el ${fechaFormateada})
+                 debido al siguiente motivo: ${estado?.motivoSancion || 'Sin especificar'}.`,
+                icon: 'warning'
+            });
+            return false;
+        }
+        if (estado?.estado===("bloqueado")) {
+            await auth.signOut();
+            mostrarAlerta({
+                title: 'Acceso Restringido',
+                text: 'Tu cuenta ha sido bloqueada debido al siguiente motivo: '+estado?.motivoSancion,
                 icon: 'error'
             });
             return false;
