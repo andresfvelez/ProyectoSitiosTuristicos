@@ -8,15 +8,16 @@ import {
 export function buildAIPayload(
     userContext: UserContext,
     availablePlaces: TouristPlace[],
-    maxResults: number = 5
+    maxResults: number = 20
 ): AIPayload {
 
+    // Ponderación optimizada para priorizar el gusto real del usuario
     const defaultWeighting: WeightingCriteria = {
-        environmentMatch: 0.10,
-        activityMatch: 0.10,
-        distance: 0.20,
-        popularity: 0.20,
-        novelty: 0.40
+        environmentMatch: 0.30,
+        distance: 0.25,
+        accessMatch: 0.15,
+        budgetMatch: 0.15,
+        popularity: 0.15
     };
 
     return {

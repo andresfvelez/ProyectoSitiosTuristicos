@@ -89,10 +89,6 @@ export const obtenerLugares = async (): Promise<LugarTuristico[]> => {
 };
 
 
-
-
-
-
 export const migrarDocumentosViejos = async (): Promise<number> => {
   try {
     const snapshot = await getDocs(collection(db, 'lugares_turisticos_scrapped'));
@@ -631,6 +627,61 @@ export const eliminarDestino = async (destinoId: string, usuarioId: string): Pro
     return true;
   } catch (error) {
     console.error("Error al eliminar el destino:", error);
+    return false;
+  }
+};
+
+export const recalcularPuntuacionesGenerales = async (): Promise<boolean> => {
+  try {
+    // 1. Consultar todos los lugares y todas las opiniones en paralelo
+    const [snapLugares, snapOpiniones] = await Promise.all([
+      getDocs(collection(db, "lugares_turisticos_scrapped")),
+      getDocs(collection(db, "opiniones_lugares"))
+    ]);
+
+    // 2. Agrupar todas las puntuaciones por `lugarId`
+    const puntuacionesPorLugar: Record<string, number[]> = {};
+
+    snapOpiniones.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const puntuacionNum = Number(data.puntuacion);
+
+      if (data.lugarId && !isNaN(puntuacionNum)) {
+        if (!puntuacionesPorLugar[data.lugarId]) {
+          puntuacionesPorLugar[data.lugarId] = [];
+        }
+        puntuacionesPorLugar[data.lugarId].push(puntuacionNum);
+      }
+    });
+
+    // 3. Preparar actualización masiva con writeBatch (solo modifica el campo 'puntuacion')
+    const batch = writeBatch(db);
+    let totalActualizados = 0;
+
+    snapLugares.docs.forEach((docSnap) => {
+      const lugarId = docSnap.id;
+      const listaPuntos = puntuacionesPorLugar[lugarId] || [];
+
+      let nuevaPuntuacionMedia = 0;
+
+      if (listaPuntos.length > 0) {
+        const suma = listaPuntos.reduce((acc, p) => acc + p, 0);
+        nuevaPuntuacionMedia = Number((suma / listaPuntos.length).toFixed(1));
+      }
+
+      const lugarRef = doc(db, "lugares_turisticos_scrapped", lugarId);
+      batch.update(lugarRef, { puntuacion: nuevaPuntuacionMedia });
+      totalActualizados++;
+    });
+
+    // 4. Aplicar cambios en Firestore
+    await batch.commit();
+
+    console.log(`✅ Puntuaciones recalculadas con éxito para ${totalActualizados} lugares.`);
+    return true;
+
+  } catch (error) {
+    console.error("Error recalculando puntuaciones generales:", error);
     return false;
   }
 };

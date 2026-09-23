@@ -3,6 +3,13 @@ import { AIPayload } from '../../Components/models/IaPayload';
 export function buildAIPromptRTCF(payload: AIPayload): string {
     const { userContext, weightingCriteria, availablePlaces, maxResults } = payload;
     const { preferences } = userContext;
+    const avoidedEnvs = (userContext.avoidedEnvironments && userContext.avoidedEnvironments.length > 0)
+        ? userContext.avoidedEnvironments.join(', ')
+        : 'Ninguno';
+
+    const compania = (preferences.companiaIdeal && preferences.companiaIdeal.length > 0)
+        ? preferences.companiaIdeal.join(', ')
+        : 'Sin especificar';
 
     return `
     <ROLE>
@@ -22,24 +29,22 @@ export function buildAIPromptRTCF(payload: AIPayload): string {
     <CONTEXT>
     <PERFIL_USUARIO>
     - ID: ${userContext.userId}
-    - Ubicación: ${userContext.currentLocation ? `${userContext.currentLocation.lat},${userContext.currentLocation.lng}` : 'No disponible'}
-    - Categorías: ${preferences.categorias.join(', ') || 'Sin especificar'}
-    - Compañía: ${preferences.acompañantes.join(', ') || 'Sin especificar'}
-    - Presupuesto: ${preferences.presupuesto}
-    - Clima: ${preferences.clima}
-    - Entorno: ${preferences.entorno}
-    - Esfuerzo: ${preferences.nivelEsfuerzo}
-    - Acceso: ${preferences.tipoAcceso}
-    - Estancia: ${preferences.duracionEstancia}
-    - Entornos a EVITAR: ${userContext.avoidedEnvironments.join(', ') || 'Ninguno'}
+    - Ubicación actual GPS: ${userContext.currentLocation ? `${userContext.currentLocation.lat},${userContext.currentLocation.lng}` : 'No disponible'}
+    - Clima Preferido: ${preferences.clima || 'Sin especificar'}
+    - Entorno Preferido: ${preferences.entorno || 'Sin especificar'}
+    - Presupuesto: ${preferences.rangoPresupuesto || 'Sin especificar'}
+    - Tipo de Acceso: ${preferences.tipoAcceso || 'Sin especificar'}
+    - Ritmo de Viaje: ${preferences.ritmo || 'Sin especificar'}
+    - Compañía Ideal: ${compania}
+    - Entornos a EVITAR: ${avoidedEnvs}
     </PERFIL_USUARIO>
     
     <CRITERIOS_PONDERACION>
-    - Entorno/Clima: ${weightingCriteria.environmentMatch}
-    - Categorías: ${weightingCriteria.activityMatch}
-    - Distancia: ${weightingCriteria.distance}
-    - Popularidad (Menos es mejor): ${weightingCriteria.popularity}
-    - Valoración (Mayor es mejor): ${weightingCriteria.novelty}
+    - Coincidencia de Entorno: ${weightingCriteria.environmentMatch}
+    - Coincidencia de Acceso: ${weightingCriteria.accessMatch}
+    - Coincidencia de Presupuesto: ${weightingCriteria.budgetMatch}
+    - Distancia Geográfica: ${weightingCriteria.distance}
+    - Popularidad (Opiniones/Visitas GA4): ${weightingCriteria.popularity}
     </CRITERIOS_PONDERACION>
     
     <CATALOGO_DESTINOS>

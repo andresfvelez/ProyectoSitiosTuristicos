@@ -1,52 +1,50 @@
 export interface UserPreferences {
-    // 1. Tipo de experiencia (Naturaleza, Cultura, etc.)
-    categorias: string[];
-    // 2. Con quién viaja (Solo, Pareja, Familia, Amigos)
-    acompañantes: string[];
-    // 3. Nivel de gasto (Bajo, Medio, Alto)
-    presupuesto: string;
-    // 4. Clima preferido (Frío, Templado, Cálido)
-    clima: string;
-    // 5. Preferencia de descubrimiento (Muy conocidos vs. Poco conocidos)
-    preferenciaDestino: string;
-    // 6. Tiempo que planea quedarse (Pasadía, Fin de semana, etc.)
-    duracionEstancia: string;
-    // 7. Nivel de actividad física (Bajo/Relax, Moderado, Alto)
-    nivelEsfuerzo: string;
-    // 8. Tipo de paisaje (Rural, Urbano, Silvestre)
-    entorno: string;
-    // 9. Facilidad de llegada (Vehículo simple, 4x4, Caminata)
-    tipoAcceso: string;
+    clima: string;             // "calido" | "frio" | "templado"
+    entorno: string;           // "naturaleza" | "pueblo" | "selva" | "urbano"
+    rangoPresupuesto: string;  // "economico" | "moderado" | "lujo"
+    tipoAcceso: string;        // "carro" | "bus" | "4x4" | "caminata"
+    ritmo: string;             // "relax" | "moderado" | "activo"
+    companiaIdeal: string[];   // ["solo", "pareja", "amigos", "familia"]
 }
+
 export interface UserContext {
     userId: string;
     preferences: UserPreferences;
     currentLocation?: { lat: number; lng: number };
-    lastVisitedPlaces: string[];
-    avoidedEnvironments: string[];
+    // Opcionales para no romper la llamada mientras no exista historial en BD
+    lastVisitedPlaces?: string[];
+    avoidedEnvironments?: string[];
 }
 
 export interface WeightingCriteria {
-    environmentMatch: number;
-    activityMatch: number;
-    distance: number;
-    popularity: number;
-    novelty:number;
+    environmentMatch: number; // Coincidencia de entorno (naturaleza, pueblo, etc.)
+    accessMatch: number;      // Coincidencia de acceso (carro, 4x4, etc.)
+    budgetMatch: number;      // Coincidencia de presupuesto
+    distance: number;         // Cercanía geográfica (GPS)
+    popularity: number;       // Basado en vistas de GA4 y puntuación de opiniones
 }
 
 export interface TouristPlace {
     id: string;
     name: string;
-    environmentType: string;
-    activities: string[];
+    category: string;
+    city: string;
+    department: string;
     location: {
-        department: string;
-        city: string;
         lat: number;
         lng: number;
     };
     rating: number;
     visitsCount: number;
+    clima: string;
+    entorno: string;
+    rangoPresupuesto: string;
+    tipoAcceso: string;
+    ritmo: string;
+    companiaIdeal: string[];
+    description?: string;
+    fechaRegistro?: number;
+    diasDesdePublicacion?: number; // Permite calcular el factor de novedad
 }
 
 export interface AIPayload {

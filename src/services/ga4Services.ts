@@ -49,7 +49,7 @@ export const obtenerVistasDirectoDesdeGA4 = async (): Promise<Record<string, num
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+                    dateRanges: [{ startDate: '120daysAgo', endDate: 'today' }],
                     dimensions: [{ name: 'pagePath' }],
                     metrics: [{ name: 'screenPageViews' }],
                 }),

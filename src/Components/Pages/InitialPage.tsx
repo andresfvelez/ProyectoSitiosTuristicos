@@ -7,10 +7,16 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
 import {
     obtenerImagenesPorDestino,
-    obtenerLugares
+    obtenerLugares, recalcularPuntuacionesGenerales
 } from "../../services/lugaresService";
 import FeaturedPost from './Seccions/Cards';
 import "../Pages/styles/Homepage.css";
+import {ejecutarPobladoComentariosFaltantes} from "./poblarOpiniones";
+import {exportarLugaresSinOpinionesAJSON, obtenerLlavesGemini} from "../../services/IA/Iaservice";
+import {curarLugaresYComentariosDuplicados} from "./reemplazarComentarios";
+import {poblarEtiquetasAventura} from "./aplicarEtiquetas";
+import {ejecutarConsultaIA} from "../../services/IA/IaExecuter";
+import {auth} from "../../firebase/firebaseConfig";
 
 const InitialPage = () => {
     const navigate = useNavigate();
@@ -26,6 +32,20 @@ const InitialPage = () => {
         const cargarTodo = async () => {
             setCargando(true);
             const listaLugares = await obtenerLugares();
+
+            //recalcularPuntuacionesGenerales();
+            //curarLugaresYComentariosDuplicados();
+            //poblarEtiquetasAventura();
+            /*
+            const usuarioActual = auth.currentUser;
+            if (usuarioActual!=null)
+            {
+                console.log(usuarioActual)
+                const consulta= await ejecutarConsultaIA(usuarioActual.uid);
+                console.log(consulta)
+            }
+
+             */
 
             const lugaresConFotos = await Promise.all(
                 listaLugares.map(async (lugar) => {

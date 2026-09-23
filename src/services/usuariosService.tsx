@@ -26,6 +26,7 @@ import CryptoJS from "crypto-js";
 import emailjs from "@emailjs/browser";
 import { db, auth } from "../firebase/firebaseConfig";
 import { UserProfileData } from "../Components/models/Usuarios";
+import {UserContext} from "../Components/models/IaPayload";
 export type AccionEstadoUsuario = 'activar' | 'suspender' | 'banear';
 
 // 🌐 Configuración de Proveedores para Web y Móvil
@@ -265,6 +266,8 @@ export const obtenerPerfilUsuario = async (uid: string): Promise<UserProfileData
     const userSnap = await getDoc(userDocRef);
     return userSnap.exists() ? (userSnap.data() as UserProfileData) : null;
 };
+
+
 
 // 🖼️ Utilidades e imágenes de perfil
 export const convertirFileABase64 = (file: File): Promise<string> => {

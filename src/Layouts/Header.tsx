@@ -8,6 +8,8 @@ import { signOut } from 'firebase/auth';
 import { auth } from "../firebase/firebaseConfig";
 import { obtenerFotoPerfilUsuario } from '../services/usuariosService';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+
 // Material UI Imports
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -28,12 +30,14 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 
 import { EstadoConexion } from "./EstadoConexion";
 import { DEFAULT_AVATAR } from './Images/defaulAvatar';
 import Swal from "sweetalert2";
-import {mostrarAlerta} from "./Utils/alertUtils";
-import {migrarDocumentosViejos} from "../services/lugaresService";
+import { mostrarAlerta } from "./Utils/alertUtils";
+import { migrarDocumentosViejos } from "../services/lugaresService";
+import {ModalRecomendacionesIA} from "../Components/Pages/Seccions/ModalRecomendacionesIa";
 
 interface HeaderProps {
     sections: ReadonlyArray<{ title: string; url: string; }>;
@@ -63,6 +67,8 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
     // 🖼️ Estado para la foto de perfil activa
     const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string>(DEFAULT_AVATAR);
 
+    // ✨ Estado para controlar el Modal de IA
+    const [modalIaAbierto, setModalIaAbierto] = useState<boolean>(false);
 
     const ejecutarMigración = async () => {
         handleMenuClose();
@@ -107,7 +113,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
             }
         }
     };
-
 
     useEffect(() => {
         const cargarFotoHeader = async () => {
@@ -237,7 +242,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                     <a className="nav-link nav-custom-link" href={section.url}>{section.title}</a>
                                 </li>
                             ))}
-
                         </ul>
                     </div>
                 </div>
@@ -247,8 +251,35 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     <EstadoConexion />
                 </div>
 
-                {/* LADO DERECHO: BUSCADOR + AVATAR + BOTÓN HAMBURGUESA MÓVIL */}
+                {/* LADO DERECHO: BUSCADOR + BOTÓN IA ESCRITORIO + AVATAR + HAMBURGUESA MÓVIL */}
                 <div className="d-flex align-items-center gap-2 gap-md-3">
+
+                    {/* 🤖 BOTÓN RECOMENDACIÓN IA (Alineado estrictamente con Bootstrap 'lg') */}
+                    {usuario && (
+                        <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => setModalIaAbierto(true)}
+                            startIcon={<AutoAwesomeIcon />}
+                            className="d-none d-lg-inline-flex" // 👈 Sincronizado exactamente a 992px con el menú hamburguesa
+                            sx={{
+                                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                                color: '#ffffff',
+                                borderRadius: '20px',
+                                textTransform: 'none',
+                                fontWeight: 'bold',
+                                fontSize: '0.85rem',
+                                px: 2,
+                                py: 0.6,
+                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%)',
+                                }
+                            }}
+                        >
+                            Para Ti (IA)
+                        </Button>
+                    )}
 
                     {/* Buscador de Ant Design (responsivo) */}
                     <div className="search-wrapper">
@@ -256,7 +287,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                             options={options}
                             onSelect={handleSelect}
                             onSearch={onSearch}
-                            style={{ width: 180 }} // Más compacto en móviles
+                            style={{ width: 180 }}
                             className="search-input-responsive"
                         >
                             <Input
@@ -295,7 +326,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </div>
                     </div>
 
-                    {/* 📱 BOTÓN HAMBURGUESA (Solo visible en móviles / tabletas pequeñas 'd-lg-none') */}
+                    {/* 📱 BOTÓN HAMBURGUESA */}
                     <IconButton
                         color="inherit"
                         onClick={() => setMobileMenuOpen(true)}
@@ -338,45 +369,24 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     Mi Perfil
                 </MenuItem>
 
-                {rol === 'administrador' && (
-                    <>
-                        <MenuItem component={RouterLink} to="/admin/pendientes">
-                            <ListItemIcon>
-                                <HourglassTopIcon fontSize="small" color="warning" />
-                            </ListItemIcon>
-                            Destinos Pendientes
-                        </MenuItem>
-
-                        <MenuItem component={RouterLink} to="/admin/reportes">
-                            <ListItemIcon>
-                                <FlagIcon fontSize="small" color="error" />
-                            </ListItemIcon>
-                            Reportes
-                        </MenuItem>
-                        <MenuItem component={RouterLink} to="/admin/usuarios">
-                            <ListItemIcon>
-                                <ManageAccountsIcon fontSize="small" color="success" />
-                            </ListItemIcon>
-                            Gestión de Usuarios
-                        </MenuItem>
-
-
-                        <MenuItem component={RouterLink} to="/admin/scrapper">
-                            <ListItemIcon>
-                                <BuildIcon fontSize="small" color="primary" />
-                            </ListItemIcon>
-                            Scrapper / Migrador
-                        </MenuItem>
-                        {/*
-                        <MenuItem onClick={ejecutarMigración}>
-                            <ListItemIcon>
-                                <AutoFixHighIcon fontSize="small" color="secondary" />
-                            </ListItemIcon>
-                            Migrar BD Vieja
-                        </MenuItem>
-                        */}
-                    </>
-                )}
+                {rol === 'administrador' && [
+                    <MenuItem key="pendientes" component={RouterLink} to="/admin/pendientes">
+                        <ListItemIcon><HourglassTopIcon fontSize="small" color="warning" /></ListItemIcon>
+                        Destinos Pendientes
+                    </MenuItem>,
+                    <MenuItem key="reportes" component={RouterLink} to="/admin/reportes">
+                        <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
+                        Reportes
+                    </MenuItem>,
+                    <MenuItem key="usuarios" component={RouterLink} to="/admin/usuarios">
+                        <ListItemIcon><ManageAccountsIcon fontSize="small" color="success" /></ListItemIcon>
+                        Gestión de Usuarios
+                    </MenuItem>,
+                    <MenuItem key="scrapper" component={RouterLink} to="/admin/scrapper">
+                        <ListItemIcon><BuildIcon fontSize="small" color="primary" /></ListItemIcon>
+                        Scrapper / Migrador
+                    </MenuItem>
+                ]}
                 <Divider />
 
                 <MenuItem onClick={handleCerrarSesion} sx={{ color: 'error.main' }}>
@@ -403,6 +413,28 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     <Divider />
 
                     <List>
+                        {/* 🤖 ÚNICO PUNTO DE ACCESO IA EN MÓVILES */}
+                        {usuario && (
+                            <ListItem disablePadding sx={{ mb: 1 }}>
+                                <ListItemButton
+                                    onClick={() => {
+                                        setMobileMenuOpen(false);
+                                        setModalIaAbierto(true);
+                                    }}
+                                    sx={{
+                                        borderRadius: '12px',
+                                        background: 'linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%)'
+                                    }}
+                                >
+                                    <ListItemIcon><AutoAwesomeIcon color="primary" /></ListItemIcon>
+                                    <ListItemText
+                                        primary="✨ Recomendados para Ti"
+                                        primaryTypographyProps={{ fontWeight: 'bold', color: '#0284c7' }}
+                                    />
+                                </ListItemButton>
+                            </ListItem>
+                        )}
+
                         {/* Secciones que venían en la prop 'sections' */}
                         {sections.map((sec) => (
                             <ListItem key={sec.title} disablePadding>
@@ -473,6 +505,13 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     </List>
                 </Box>
             </Drawer>
+
+            {/* ✨ MODAL INDEPENDIENTE DE IA */}
+            <ModalRecomendacionesIA
+                isOpen={modalIaAbierto}
+                onClose={() => setModalIaAbierto(false)}
+                userId={usuario?.uid}
+            />
         </nav>
     );
 }
