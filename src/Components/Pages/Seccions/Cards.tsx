@@ -16,7 +16,7 @@ import { Box, Typography, Stack, IconButton, CircularProgress } from "@mui/mater
 // Estilos
 import "../styles/Cards.css";
 import "../../Pages/styles/Lugar.css";
-import imgGuatape from "../../../Layouts/Images/Banner.png";
+import Missingimg from "../../../Layouts/Images/missing.png";
 import { LugarTuristico } from "../../models/LugarTuristico";
 import { useAuth } from "../../../auth/AuthProvider";
 import { eliminarFavorito, guardarFavorito, verificarEsFavorito } from "../../../services/usuariosService";
@@ -155,7 +155,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             const indice = Math.floor(Math.random() * post.imagenes.length);
             return post.imagenes[indice];
         }
-        return imgGuatape;
+        return Missingimg;
     }, [post.imagenes]);
 
     useEffect(() => {
@@ -218,7 +218,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             >
                 <Box sx={{ position: 'relative', height: '180px', width: '100%', overflow: 'hidden' }}>
                     <img
-                        src={post.imagenes?.[0] || imgGuatape}
+                        src={post.imagenes?.[0] || Missingimg}
                         alt={post.nombre}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => { e.currentTarget.src = "https://via.placeholder.com/300x200?text=Sin+Imagen"; }}
@@ -279,7 +279,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
                     <Box sx={{ position: 'relative', height: { xs: '140px', sm: '160px' }, width: '100%', bgcolor: '#0f172a' }}>
                         <img
                             key={fotoActual}
-                            src={post.imagenes && post.imagenes.length > 0 ? post.imagenes[fotoActual] : imgGuatape}
+                            src={post.imagenes && post.imagenes.length > 0 ? post.imagenes[fotoActual] : Missingimg}
                             alt={post.nombre}
                             style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'opacity 0.4s ease-in-out' }}
                         />

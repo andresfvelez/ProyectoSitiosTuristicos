@@ -32,7 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Form, Input, InputNumber, Checkbox, Switch, Select, Tooltip, message, Popconfirm } from "antd";
 
 // Assets y Componentes Locales
-import BannerImg from "../../Layouts/Images/Banner.png";
+import Missingimg from "../../Layouts/Images/missing.png";
 import "./styles/PublicarDestino.css";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
 import SelectorImagenes from "./Seccions/SelectorImages";
@@ -141,7 +141,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     const esAventura = preview.categoria === "aventura";
 
     const getImagenSrc = (src: string) => {
-        if (!src) return BannerImg;
+        if (!src) return Missingimg;
         if (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:image')) {
             return src;
         }
@@ -967,7 +967,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                             >
                                 <Box sx={{ position: "relative", height: { xs: "200px", sm: "240px" }, overflow: "hidden" }}>
                                     <img
-                                        src={previewUrls.length > 0 ? getImagenSrc(previewUrls[imgActualIndex]) : BannerImg}
+                                        src={previewUrls.length > 0 ? getImagenSrc(previewUrls[imgActualIndex]) : Missingimg}
                                         alt="Preview"
                                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                     />

@@ -40,12 +40,12 @@ import {
     OPCIONES_RITMO
 } from "../models/OpcionesDestinos";
 
-import BannerImg from "../../Layouts/Images/Banner.png";
+import Missingimg from "../../Layouts/Images/missing.png";
 import { obtenerCiudadesColombia } from "../../services/ApiServices";
 
 // Helper para interpretar formato de imagen
 const getImagenSrc = (src?: string | null) => {
-    if (!src) return BannerImg;
+    if (!src) return Missingimg;
     if (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:image')) {
         return src;
     }

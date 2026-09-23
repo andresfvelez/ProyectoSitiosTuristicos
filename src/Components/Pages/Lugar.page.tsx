@@ -41,7 +41,7 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
 
 // Local Assets & Components
-import BannerImg from "../../Layouts/Images/Banner.png";
+import Missingimg from "../../Layouts/Images/missing.png";
 import FeaturedPost from './Seccions/Cards';
 import "../Pages/styles/Lugar.css";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
@@ -520,7 +520,7 @@ const Pagina2 = () => {
                     <img
                         src={info?.imagenes && info.imagenes.length > 0
                             ? (info.imagenes[0].startsWith('data:') ? info.imagenes[0] : `data:image/jpeg;base64,${info.imagenes[0]}`)
-                            : BannerImg}
+                            : Missingimg}
                         alt="sidebar-img"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />

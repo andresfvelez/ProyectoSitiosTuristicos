@@ -28,7 +28,7 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { Button, Form, Input, InputNumber, Checkbox, Switch, Select, Tooltip, message } from "antd";
 
 // Assets y Componentes Locales
-import BannerImg from "../../Layouts/Images/Banner.png";
+import Missingimg from "../../Layouts/Images/missing.png";
 import "./styles/PublicarDestino.css";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
 import SelectorImagenes from "./Seccions/SelectorImages";
@@ -535,7 +535,7 @@ const PublicarAntiguo = () => {
                                 {/* CARRUSEL DE IMÁGENES */}
                                 <Box sx={{ position: "relative", height: "240px", overflow: "hidden" }}>
                                     <img
-                                        src={previewUrls.length > 0 ? previewUrls[imgActualIndex] : BannerImg}
+                                        src={previewUrls.length > 0 ? previewUrls[imgActualIndex] : Missingimg}
                                         alt="Preview"
                                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                     />
