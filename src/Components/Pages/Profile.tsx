@@ -44,7 +44,6 @@ const OPCION_ACCESIBILIDAD_DISCAPACIDAD = {
 
 export const Profile: FunctionComponent = () => {
   const navigate = useNavigate();
-  const [lugares, setLugares] = useState<LugarTuristico[]>([]);
   const [favoritos, setFavoritos] = useState<LugarTuristico[]>([]);
   const [opcionesCiudades, setOpcionesCiudades] = useState<{ label: string; value: string }[]>([]);
   const [cargandoCiudades, setCargandoCiudades] = useState<boolean>(false);
@@ -163,19 +162,6 @@ export const Profile: FunctionComponent = () => {
             })
         );
         setFavoritos(favsConFotos);
-
-        // 4. Carga de Destinos Populares/Explorados
-        const listaLugares = await obtenerLugares();
-        const lugaresConFotos = await Promise.all(
-            listaLugares.map(async (lugar) => {
-              const fotos = await obtenerImagenesPorDestino(lugar.id!);
-              return {
-                ...lugar,
-                imagenes: fotos
-              };
-            })
-        );
-        setLugares(lugaresConFotos);
 
       } catch (error) {
         console.error("Error cargando perfil:", error);
@@ -386,7 +372,7 @@ export const Profile: FunctionComponent = () => {
                   />
                 </Grid>
 
-              
+
                 <Grid item xs={12} md={6}>
                   <label className="input-label">Teléfono:</label>
                   <TextField
