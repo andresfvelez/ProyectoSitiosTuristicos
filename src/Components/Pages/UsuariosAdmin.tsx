@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, Stack, Tooltip } from '@mui/material';
 import { Table, Button, message, Popconfirm, Tag, Select, Modal, Input, InputNumber } from 'antd';
 
-// Iconos
 import PeopleIcon from '@mui/icons-material/People';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BlockIcon from '@mui/icons-material/Block';
@@ -18,49 +17,70 @@ import {
 import { UserProfileData, RolUsuario } from '../../Components/models/Usuarios';
 import { guardarLimiteReportes, obtenerLimiteReportes } from "../../services/lugaresService";
 
-const UsuariosAdmin = () => {
+const UsuariosAdmin: React.FC = () => {
     const [usuarios, setUsuarios] = useState<UserProfileData[]>([]);
     const [cargando, setCargando] = useState<boolean>(true);
     const [busqueda, setBusqueda] = useState<string>('');
 
-    // ⚙️ Estados para la configuración de reportes
     const [limiteReportes, setLimiteReportes] = useState<number>(3);
     const [guardandoLimite, setGuardandoLimite] = useState<boolean>(false);
 
-    // Estado para el Modal de Suspensión / Baneo
     const [modalVisible, setModalVisible] = useState<boolean>(false);
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<UserProfileData | null>(null);
     const [tipoAccionModal, setTipoAccionModal] = useState<'suspender' | 'banear'>('suspender');
     const [diasSuspension, setDiasSuspension] = useState<number>(3);
     const [motivo, setMotivo] = useState<string>('');
 
+    // Consulta inicial del listado de usuarios y umbral dinámico de reportes
     const cargarDatos = async () => {
+        let isMounted = true;
         setCargando(true);
-        const [lista, limite] = await Promise.all([
-            obtenerTodosLosUsuarios(),
-            obtenerLimiteReportes()
-        ]);
-        setUsuarios(lista);
-        setLimiteReportes(limite);
-        setCargando(false);
+
+        try {
+            const [lista, limite] = await Promise.all([
+                obtenerTodosLosUsuarios(),
+                obtenerLimiteReportes()
+            ]);
+
+            if (isMounted) {
+                setUsuarios(lista || []);
+                setLimiteReportes(typeof limite === 'number' ? limite : 3);
+            }
+        } catch (error) {
+            if (isMounted) {
+                setUsuarios([]);
+            }
+        } finally {
+            if (isMounted) {
+                setCargando(false);
+            }
+        }
+
+        return () => {
+            isMounted = false;
+        };
     };
 
     useEffect(() => {
         cargarDatos();
     }, []);
 
-    // 💾 Guardar nuevo umbral de reportes
+    // Persistencia del umbral mínimo de alertas de reportes en Firestore
     const handleGuardarLimite = async () => {
         setGuardandoLimite(true);
-        const exito = await guardarLimiteReportes(limiteReportes);
-        if (exito) {
-            message.success("Umbral de alerta por reportes guardado en Firestore.");
-        } else {
-            message.error("Error al guardar el umbral de reportes.");
+        try {
+            const exito = await guardarLimiteReportes(limiteReportes);
+            if (exito) {
+                message.success("Umbral de alerta por reportes guardado exitosamente.");
+            } else {
+                message.error("Error al guardar el umbral de reportes.");
+            }
+        } finally {
+            setGuardandoLimite(false);
         }
-        setGuardandoLimite(false);
     };
 
+    // Filtro reactivo en memoria por coincidencia de nombre o correo electrónico
     const usuariosFiltrados = usuarios.filter((usuario) => {
         const termino = busqueda.toLowerCase().trim();
         const nombre = (usuario.fullName || '').toLowerCase();
@@ -68,6 +88,7 @@ const UsuariosAdmin = () => {
         return nombre.includes(termino) || correo.includes(termino);
     });
 
+    // Modificación de privilegios administrativos
     const handleCambiarRol = async (uid: string, nuevoRol: RolUsuario) => {
         const exito = await cambiarRolUsuario(uid, nuevoRol);
         if (exito) {
@@ -78,6 +99,7 @@ const UsuariosAdmin = () => {
         }
     };
 
+    // Reactivación de cuenta y remoción de penalizaciones disciplinarias
     const handleActivar = async (uid: string) => {
         const exito = await gestionarEstadoUsuario(uid, 'activar');
         if (exito) {
@@ -88,6 +110,7 @@ const UsuariosAdmin = () => {
         }
     };
 
+    // Apertura del cuadro modal sancionatorio
     const abrirModalSancion = (usuario: UserProfileData, accion: 'suspender' | 'banear') => {
         setUsuarioSeleccionado(usuario);
         setTipoAccionModal(accion);
@@ -96,6 +119,7 @@ const UsuariosAdmin = () => {
         setModalVisible(true);
     };
 
+    // Aplicación de suspensión temporal o inhabilitación permanente
     const handleConfirmarSancion = async () => {
         const uid = usuarioSeleccionado?.uid;
         if (!uid) return;
@@ -106,7 +130,7 @@ const UsuariosAdmin = () => {
         });
 
         if (exito) {
-            message.warning(`El usuario ha sido ${tipoAccionModal === 'suspender' ? 'suspendido' : 'baneado permanentemente'}.`);
+            message.warning(`El usuario ha sido ${tipoAccionModal === 'suspender' ? 'suspendido' : 'bloqueado permanentemente'}.`);
             setModalVisible(false);
             cargarDatos();
         } else {
@@ -114,7 +138,7 @@ const UsuariosAdmin = () => {
         }
     };
 
-    // -- COLUMNAS CON ANCHOS MÍNIMOS EN PX PARA EVITAR DEFORMACIÓN EN MÓVIL --
+    // Definición de columnas de la tabla con anchos fijos para navegación horizontal
     const columnas = [
         {
             title: 'Usuario',
@@ -164,7 +188,7 @@ const UsuariosAdmin = () => {
                         : 'N/A';
 
                     return (
-                        <Tooltip title={`Sancionado hasta: ${fechaExp} - Motivo: ${record.motivoSancion || 'Sin especificar'}`}>
+                        <Tooltip title={`Sancionado hasta: ${fechaExp} | Motivo: ${record.motivoSancion || 'Sin especificar'}`}>
                             <Tag color="warning" style={{ fontWeight: 'bold' }}>
                                 SUSPENDIDO ({fechaExp})
                             </Tag>
@@ -173,7 +197,7 @@ const UsuariosAdmin = () => {
                 }
 
                 return (
-                    <Tooltip title={`Motivo: ${record.motivoSancion || 'Violación de políticas'}`}>
+                    <Tooltip title={`Motivo: ${record.motivoSancion || 'Violación de políticas del servicio'}`}>
                         <Tag color="error" style={{ fontWeight: 'bold' }}>
                             BANEADO DEFINITIVO
                         </Tag>
@@ -193,7 +217,7 @@ const UsuariosAdmin = () => {
                         {estado !== 'activo' ? (
                             <Popconfirm
                                 title="¿Reactivar cuenta de usuario?"
-                                description="Se eliminarán las sanciones actuales y el usuario podrá ingresar de nuevo."
+                                description="Se retirarán las sanciones actuales y el usuario recuperará el acceso a la plataforma."
                                 onConfirm={() => handleActivar(record.uid!)}
                                 okText="Sí, Activar"
                                 cancelText="Cancelar"
@@ -231,7 +255,7 @@ const UsuariosAdmin = () => {
         <Box sx={{ p: { xs: 1.5, sm: 3, md: 4 }, bgcolor: "#f1f5f9", minHeight: "100vh", overflowX: "hidden" }}>
             <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, borderRadius: { xs: "16px", sm: "20px" }, boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
 
-                {/* 🔔 SECCIÓN SUPERIOR: CONFIGURACIÓN DE UMBRAL DE REPORTES RESPONSIVA */}
+                {/* Parámetros operativos: Umbral de reportes */}
                 <Paper
                     elevation={0}
                     sx={{
@@ -250,7 +274,7 @@ const UsuariosAdmin = () => {
                                     Umbral de Alerta de Reportes
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
-                                    Define la cantidad mínima de reportes para notificar o alertar al administrador sobre un sitio o usuario.
+                                    Define la cantidad mínima de quejas requeridas para alertar automáticamente al administrador sobre un destino o cuenta.
                                 </Typography>
                             </Box>
                         </Stack>
@@ -275,14 +299,16 @@ const UsuariosAdmin = () => {
                     </Stack>
                 </Paper>
 
-                {/* ENCABEZADO DE MÓDULO */}
+                {/* Cabecera del panel administrativo */}
                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 4 }}>
                     <Stack direction="row" alignItems="center" spacing={2}>
                         <PeopleIcon sx={{ fontSize: { xs: 28, sm: 36 }, color: "#0284c7" }} />
                         <Box>
-                            <Typography variant="h5" fontWeight="800" sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>Gestión de Usuarios</Typography>
+                            <Typography variant="h5" fontWeight="800" sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, color: '#0f172a' }}>
+                                Gestión de Usuarios
+                            </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.82rem", sm: "0.875rem" } }}>
-                                Administra el rol de los usuarios, el estado de acceso de las cuentas de usuarios y aplica suspensiones o baneos.
+                                Asignación de roles, auditoría de credenciales y aplicación de directivas sancionatorias.
                             </Typography>
                         </Box>
                     </Stack>
@@ -305,12 +331,13 @@ const UsuariosAdmin = () => {
                     scroll={{ x: 'max-content' }}
                 />
 
+                {/* Diálogo modal de aplicación de sanciones */}
                 <Modal
-                    title={tipoAccionModal === 'suspender' ? "⚠️ Suspender Usuario Temporalmente" : "⛔ Banear Usuario Definitivamente"}
+                    title={tipoAccionModal === 'suspender' ? "Suspender Cuenta Temporalmente" : "Bloquear Usuario Definitivamente"}
                     open={modalVisible}
                     onOk={handleConfirmarSancion}
                     onCancel={() => setModalVisible(false)}
-                    okText={tipoAccionModal === 'suspender' ? "Aplicar Suspensión" : "Confirmar Baneo"}
+                    okText={tipoAccionModal === 'suspender' ? "Aplicar Suspensión" : "Confirmar Bloqueo"}
                     okButtonProps={{ danger: tipoAccionModal === 'banear' }}
                     cancelText="Cancelar"
                     width="92%"
@@ -342,7 +369,7 @@ const UsuariosAdmin = () => {
                             </Typography>
                             <Input.TextArea
                                 rows={3}
-                                placeholder="Escribe la razón por la cual se aplica esta sanción..."
+                                placeholder="Describe el causal de la infracción o motivo de la sanción..."
                                 value={motivo}
                                 onChange={(e) => setMotivo(e.target.value)}
                             />

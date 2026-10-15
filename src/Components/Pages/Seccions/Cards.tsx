@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal, message } from "antd";
 
-// Iconos Material UI (Mismos que Pagina2)
+// Iconos Material UI (Mismos que destino)
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import StarIcon from "@mui/icons-material/Star";
@@ -146,7 +146,7 @@ export default function FeaturedPost(props: FeaturedPostProps) {
             localStorage.setItem("origen", "lugar");
             navigate("/Mapa");
         } else {
-            navigate(`/pagina2/${post.id}`);
+            navigate(`/destino/${post.id}`);
         }
     };
 

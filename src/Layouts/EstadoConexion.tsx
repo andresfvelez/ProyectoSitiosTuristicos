@@ -1,22 +1,17 @@
-import * as React from 'react';
+import React, { useState, useEffect } from 'react';
 import Chip from '@mui/material/Chip';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 
-export function EstadoConexion() {
-    // 1. Arrancamos asumiendo que sí hay red para evitar alertas falsas en el primer milisegundo
-    const [online, setOnline] = React.useState<boolean>(true);
+export const EstadoConexion: React.FC = () => {
+    const [online, setOnline] = useState<boolean>(() => {
+        return typeof navigator !== 'undefined' ? navigator.onLine : true;
+    });
 
-    React.useEffect(() => {
-        // 2. Al arrancar el componente, le hacemos una pregunta directa y real al navegador
-        if (typeof navigator !== 'undefined') {
-            setOnline(navigator.onLine);
-        }
-
+    useEffect(() => {
         const controlarOnline = () => setOnline(true);
         const controlarOffline = () => setOnline(false);
 
-        // Escuchadores para cambios en tiempo real
         window.addEventListener('online', controlarOnline);
         window.addEventListener('offline', controlarOffline);
 
@@ -32,26 +27,41 @@ export function EstadoConexion() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                margin: '0 15px', // Le da un espacio respirable a los lados
+                margin: '0 10px',
                 zIndex: 10
             }}
         >
             {online ? (
                 <Chip
-                    icon={<WifiIcon />}
-                    label="Conectado"
+                    icon={<WifiIcon style={{ fontSize: 16 }} />}
+                    label="En línea"
                     color="success"
                     variant="outlined"
                     size="small"
+                    sx={{
+                        fontSize: '0.75rem',
+                        height: 24,
+                        fontWeight: 600,
+                        borderColor: '#22c55e',
+                        color: '#15803d'
+                    }}
                 />
             ) : (
                 <Chip
-                    icon={<WifiOffIcon />}
-                    label="Modo Offline (Caché activa)"
+                    icon={<WifiOffIcon style={{ fontSize: 16 }} />}
+                    label="Modo Offline"
                     color="warning"
                     size="small"
+                    sx={{
+                        fontSize: '0.75rem',
+                        height: 24,
+                        fontWeight: 700,
+                        bgcolor: '#fef3c7',
+                        color: '#b45309',
+                        border: '1px solid #f59e0b'
+                    }}
                 />
             )}
         </div>
     );
-}
+};

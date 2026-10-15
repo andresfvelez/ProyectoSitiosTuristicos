@@ -26,16 +26,21 @@ import CryptoJS from "crypto-js";
 import emailjs from "@emailjs/browser";
 import { db, auth } from "../firebase/firebaseConfig";
 import { UserProfileData } from "../Components/models/Usuarios";
-import {UserContext} from "../Components/models/IaPayload";
+
 export type AccionEstadoUsuario = 'activar' | 'suspender' | 'banear';
 
-// 🌐 Configuración de Proveedores para Web y Móvil
+/* ==========================================================================
+   1. PROVEEDORES Y SEGURIDAD (JWT, AES, RECAPTCHA)
+   ========================================================================== */
+
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 const facebookProvider = new FacebookAuthProvider();
 
-
-// 🔐 Validar la vigencia del token JWT (expiración)
+/**
+ * Valida la expiración del token JWT del usuario activo y cierra sesión si ha caducado.
+ */
 export const validarVigenciaToken = async (usuario: User): Promise<boolean> => {
     try {
         const tokenResult = await usuario.getIdTokenResult();
@@ -47,24 +52,27 @@ export const validarVigenciaToken = async (usuario: User): Promise<boolean> => {
             return false;
         }
         return true;
-    } catch (error) {
-        console.error("Error al validar el token JWT:", error);
+    } catch {
         await auth.signOut();
         return false;
     }
 };
 
-// 🔐 Auxiliar para desencriptar cadenas AES
+/**
+ * Descifra cadenas encriptadas con algoritmo AES mediante una frase clave.
+ */
 const desencriptarDatos = (data: string, key: string): string => {
     try {
         const bytes = CryptoJS.AES.decrypt(data, key);
         return bytes.toString(CryptoJS.enc.Utf8);
-    } catch (error) {
+    } catch {
         return "";
     }
 };
 
-// 🔑 Obtener datos del servicio de correos desde Firestore y desencriptarlos
+/**
+ * Recupera y descifra los parámetros de autenticación para el servicio de mensajería transaccional.
+ */
 export const obtenerMessagingData = async () => {
     try {
         const docRef = doc(db, "Constantes", "claves");
@@ -82,13 +90,41 @@ export const obtenerMessagingData = async () => {
             service: desencriptarDatos(dataEmail.service, fraseMaestra),
             key: desencriptarDatos(dataEmail.key, fraseMaestra)
         };
-    } catch (error) {
-        console.error("Error desencriptando datos de mensajería:", error);
+    } catch {
         return null;
     }
 };
 
-// 📝 Registrar usuario en Auth, guardar en Firestore y enviar correo de bienvenida
+/**
+ * Consulta la llave pública de reCAPTCHA configurada en Firestore.
+ */
+export const obtenerClaveRecaptcha = async (): Promise<string | null> => {
+    try {
+        const docRefClaves = doc(db, "Constantes", "claves");
+        const docSnapClaves = await getDoc(docRefClaves);
+        const docRefRecaptcha = doc(db, "Constantes", "Recaptcha");
+        const docSnapRecaptcha = await getDoc(docRefRecaptcha);
+
+        if (!docSnapClaves.exists() || !docSnapRecaptcha.exists()) return null;
+
+        const fraseMaestra = docSnapClaves.data().encriptado;
+        const dataRecaptcha = docSnapRecaptcha.data();
+
+        if (!dataRecaptcha?.key) return null;
+
+        return desencriptarDatos(dataRecaptcha.key, fraseMaestra);
+    } catch {
+        return null;
+    }
+};
+/* ==========================================================================
+   2. REGISTRO Y GESTIÓN DE ACCESO TRADICIONAL
+   ========================================================================== */
+
+/**
+ * Registra un nuevo usuario en Authentication, crea su documento base en Firestore
+ * y despacha un correo de bienvenida mediante EmailJS.
+ */
 export const registrarNuevoUsuario = async (
     fullName: string,
     email: string,
@@ -121,14 +157,16 @@ export const registrarNuevoUsuario = async (
                 emailData.key
             );
         }
-    } catch (emailError) {
-        console.error("Error al enviar el correo de bienvenida:", emailError);
+    } catch {
+        // Fallo no bloqueante en el despacho del correo
     }
 
     return credenciales.user;
 };
 
-// 📧 Enviar correo de recuperación verificando si la cuenta proviene de Google/Facebook
+/**
+ * Gestiona el restablecimiento de contraseña validando previamente si la cuenta proviene de OAuth.
+ */
 export const enviarCorreoRecuperacion = async (
     email: string
 ): Promise<{ exito: boolean; esExterno?: boolean; errorKey?: string }> => {
@@ -146,24 +184,27 @@ export const enviarCorreoRecuperacion = async (
         await sendPasswordResetEmail(auth, email);
         return { exito: true };
     } catch (error: any) {
-        console.error("Error al enviar correo de recuperación:", error);
         return { exito: false, errorKey: error.code };
     }
 };
 
-//  Verificar si el usuario se encuentra bloqueado
+/**
+ * Verifica si el usuario presenta sanciones activas o bloqueos definitivos.
+ */
 export const verificarUsuarioBloqueado = async (uid: string): Promise<any> => {
     try {
         const userDocRef = doc(db, "usuarios", uid);
         const userSnap = await getDoc(userDocRef);
         return userSnap.exists() ? userSnap.data() : null;
-    } catch (error) {
-        console.error("Error al verificar estado del usuario:", error);
+    } catch {
         return null;
     }
 };
 
-// 👤 Registrar perfil base en Firestore tras autenticarse por Google
+/* ==========================================================================
+   3. AUTENTICACIÓN HÍBRIDA (WEB / CAPACITOR NATIVO)
+   ========================================================================== */
+
 export const gestionarIngresoGoogle = async (usuario: User): Promise<void> => {
     const userDocRef = doc(db, "usuarios", usuario.uid);
     const userSnap = await getDoc(userDocRef);
@@ -182,7 +223,6 @@ export const gestionarIngresoGoogle = async (usuario: User): Promise<void> => {
     }
 };
 
-// 👤 Registrar perfil base en Firestore tras autenticarse por Facebook
 export const gestionarIngresoFacebook = async (usuario: User): Promise<void> => {
     const userDocRef = doc(db, "usuarios", usuario.uid);
     const userSnap = await getDoc(userDocRef);
@@ -201,163 +241,58 @@ export const gestionarIngresoFacebook = async (usuario: User): Promise<void> => 
     }
 };
 
-// 🚀 AUTENTICACIÓN HÍBRIDA CON GOOGLE (Página Web + App Móvil APK)
 export const iniciarSesionGoogleHibrido = async (): Promise<User> => {
     let usuarioAuth: User;
 
     if (Capacitor.isNativePlatform()) {
-        // 📱 Móvil (Capacitor): abre el diálogo nativo del dispositivo
         await GoogleAuth.initialize();
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         const resultado = await signInWithCredential(auth, credential);
         usuarioAuth = resultado.user;
     } else {
-        // 💻 Web: usa la ventana flotante estándar del navegador
         const resultado = await signInWithPopup(auth, googleProvider);
         usuarioAuth = resultado.user;
     }
 
-    // Crea el perfil en Firestore si es nuevo usuario
     await gestionarIngresoGoogle(usuarioAuth);
     return usuarioAuth;
 };
 
-// 🚀 AUTENTICACIÓN HÍBRIDA CON FACEBOOK (Página Web + App Móvil APK)
 export const iniciarSesionFacebookHibrido = async (): Promise<User> => {
     let usuarioAuth: User;
 
     if (Capacitor.isNativePlatform()) {
-        // 📱 Móvil (Capacitor): usa la app nativa de Facebook o WebView seguro
         const result = await FacebookLogin.login({ permissions: ['public_profile', 'email'] });
         if (result.accessToken) {
             const credential = FacebookAuthProvider.credential(result.accessToken.token);
             const resultado = await signInWithCredential(auth, credential);
             usuarioAuth = resultado.user;
         } else {
-            throw new Error("No se obtuvo el token de Facebook.");
+            throw new Error("No se obtuvo el token de acceso de Facebook.");
         }
     } else {
-        // 💻 Web: usa la ventana flotante estándar del navegador
         const resultado = await signInWithPopup(auth, facebookProvider);
         usuarioAuth = resultado.user;
     }
 
-    // Crea el perfil en Firestore si es nuevo usuario
     await gestionarIngresoFacebook(usuarioAuth);
     return usuarioAuth;
 };
 
-// 🔑 Obtener clave del reCAPTCHA
-export const obtenerClaveRecaptcha = async (): Promise<string | null> => {
+/* ==========================================================================
+   4. GESTIÓN DE PERFIL Y ARCHIVOS BINARIOS
+   ========================================================================== */
+
+export const obtenerPerfilUsuario = async (uid: string): Promise<UserProfileData | null> => {
     try {
-        const docRefRecaptcha = doc(db, "Constantes", "Recaptcha");
-        const docSnapRecaptcha = await getDoc(docRefRecaptcha);
-        return docSnapRecaptcha.exists() ? docSnapRecaptcha.data()?.key || null : null;
-    } catch (error) {
-        console.error("Error obteniendo clave de reCAPTCHA:", error);
+        const userDocRef = doc(db, "usuarios", uid);
+        const userSnap = await getDoc(userDocRef);
+        return userSnap.exists() ? (userSnap.data() as UserProfileData) : null;
+    } catch {
         return null;
     }
 };
-
-// 👤 Obtener perfil completo del usuario
-export const obtenerPerfilUsuario = async (uid: string): Promise<UserProfileData | null> => {
-    const userDocRef = doc(db, "usuarios", uid);
-    const userSnap = await getDoc(userDocRef);
-    return userSnap.exists() ? (userSnap.data() as UserProfileData) : null;
-};
-
-
-
-// 🖼️ Utilidades e imágenes de perfil
-export const convertirFileABase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-    });
-};
-
-export const obtenerFotoPerfilUsuario = async (uid: string): Promise<{ id: string; base64: string } | null> => {
-    const qFoto = query(
-        collection(db, "imagenes_b64"),
-        where("idVinculado", "==", uid),
-        where("esLugar", "==", false)
-    );
-    const fotoSnap = await getDocs(qFoto);
-
-    if (!fotoSnap.empty) {
-        const docFoto = fotoSnap.docs[0];
-        return {
-            id: docFoto.id,
-            base64: docFoto.data().base64
-        };
-    }
-    return null;
-};
-
-
-export const cambiarRolUsuario = async (uid: string, nuevoRol: string): Promise<boolean> => {
-    try {
-        const userRef = doc(db, "usuarios", uid);
-
-        await updateDoc(userRef, { rol: nuevoRol });
-
-        return true;
-    } catch (error) {
-        console.error("Error al cambiar el rol del usuario:", error);
-        return false;
-    }
-};
-export const gestionarEstadoUsuario = async (
-    uid: string,
-    accion: AccionEstadoUsuario,
-    opciones?: { diasSuspension?: number; motivo?: string } // Opcional según la acción
-): Promise<boolean> => {
-    try {
-        const userRef = doc(db, "usuarios", uid);
-        let dataActualizacion: any = {};
-
-        switch (accion) {
-            case 'activar':
-                dataActualizacion = {
-                    estado: "activo",
-                    bloqueadoHasta: null,
-                    motivoSancion: null
-                };
-                break;
-
-            case 'suspender':
-                const dias = opciones?.diasSuspension || 1;
-                const fechaFinMs = Date.now() + (dias * 24 * 60 * 60 * 1000); // Días a milisegundos
-
-                dataActualizacion = {
-                    estado: "suspendido",
-                    bloqueadoHasta: fechaFinMs,
-                    motivoSancion: opciones?.motivo || "Comportamiento inadecuado"
-                };
-                break;
-
-            case 'banear':
-                // Bloqueo permanente
-                dataActualizacion = {
-                    estado: "bloqueado",
-                    bloqueadoHasta: null,
-                    motivoSancion: opciones?.motivo || "Violación grave de políticas"
-                };
-                break;
-        }
-
-        // Ejecuta la actualización en Firestore
-        await updateDoc(userRef, dataActualizacion);
-        return true;
-    } catch (error) {
-        console.error(`Error al ejecutar acción '${accion}' en el usuario:`, error);
-        return false;
-    }
-};
-
 
 export const actualizarPerfilUsuario = async (
     uid: string,
@@ -392,6 +327,37 @@ export const actualizarPerfilUsuario = async (
     });
 };
 
+export const convertirFileABase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+    });
+};
+
+export const obtenerFotoPerfilUsuario = async (uid: string): Promise<{ id: string; base64: string } | null> => {
+    try {
+        const qFoto = query(
+            collection(db, "imagenes_b64"),
+            where("idVinculado", "==", uid),
+            where("esLugar", "==", false)
+        );
+        const fotoSnap = await getDocs(qFoto);
+
+        if (!fotoSnap.empty) {
+            const docFoto = fotoSnap.docs[0];
+            return {
+                id: docFoto.id,
+                base64: docFoto.data().base64
+            };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+};
+
 export const guardarFotoPerfilUsuario = async (
     uid: string,
     file: File,
@@ -422,6 +388,9 @@ export const eliminarFotoPerfilUsuario = async (fotoDocId: string): Promise<void
     await deleteDoc(fotoRef);
 };
 
+/* ==========================================================================
+   5. ADMINISTRACIÓN, ROLES Y RÉGIMEN SANCIONATORIO
+   ========================================================================== */
 
 export const obtenerTodosLosUsuarios = async (): Promise<UserProfileData[]> => {
     try {
@@ -430,13 +399,69 @@ export const obtenerTodosLosUsuarios = async (): Promise<UserProfileData[]> => {
             uid: docSnap.id,
             ...docSnap.data()
         } as UserProfileData));
-    } catch (error) {
-        console.error("Error al obtener la lista general de usuarios:", error);
+    } catch {
         return [];
     }
 };
 
-// ❤️ Gestión de Favoritos
+export const cambiarRolUsuario = async (uid: string, nuevoRol: string): Promise<boolean> => {
+    try {
+        const userRef = doc(db, "usuarios", uid);
+        await updateDoc(userRef, { rol: nuevoRol });
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const gestionarEstadoUsuario = async (
+    uid: string,
+    accion: AccionEstadoUsuario,
+    opciones?: { diasSuspension?: number; motivo?: string }
+): Promise<boolean> => {
+    try {
+        const userRef = doc(db, "usuarios", uid);
+        let dataActualizacion: any = {};
+
+        switch (accion) {
+            case 'activar':
+                dataActualizacion = {
+                    estado: "activo",
+                    bloqueadoHasta: null,
+                    motivoSancion: null
+                };
+                break;
+
+            case 'suspender':
+                const dias = opciones?.diasSuspension || 1;
+                const fechaFinMs = Date.now() + (dias * 24 * 60 * 60 * 1000);
+                dataActualizacion = {
+                    estado: "suspendido",
+                    bloqueadoHasta: fechaFinMs,
+                    motivoSancion: opciones?.motivo || "Comportamiento inadecuado"
+                };
+                break;
+
+            case 'banear':
+                dataActualizacion = {
+                    estado: "bloqueado",
+                    bloqueadoHasta: null,
+                    motivoSancion: opciones?.motivo || "Violación de políticas del servicio"
+                };
+                break;
+        }
+
+        await updateDoc(userRef, dataActualizacion);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+/* ==========================================================================
+   6. GESTIÓN DE MARCADORES FAVORITOS
+   ========================================================================== */
+
 export const verificarEsFavorito = async (lugarId: string, usuarioId: string): Promise<boolean> => {
     try {
         const q = query(
@@ -446,8 +471,7 @@ export const verificarEsFavorito = async (lugarId: string, usuarioId: string): P
         );
         const snapshot = await getDocs(q);
         return !snapshot.empty;
-    } catch (error) {
-        console.error("Error al verificar favorito:", error);
+    } catch {
         return false;
     }
 };
@@ -460,8 +484,7 @@ export const guardarFavorito = async (lugarId: string, usuarioId: string): Promi
             fecha: Date.now()
         });
         return true;
-    } catch (error) {
-        console.error("Error al guardar favorito:", error);
+    } catch {
         return false;
     }
 };
@@ -477,9 +500,7 @@ export const eliminarFavorito = async (lugarId: string, usuarioId: string): Prom
         const borrados = snapshot.docs.map((docSnap) => deleteDoc(doc(db, "favoritos", docSnap.id)));
         await Promise.all(borrados);
         return true;
-    } catch (error) {
-        console.error("Error al eliminar favorito:", error);
+    } catch {
         return false;
     }
 };
-

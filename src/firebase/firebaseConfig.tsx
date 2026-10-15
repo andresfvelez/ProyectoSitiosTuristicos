@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import {
-    getFirestore,
     initializeFirestore,
     persistentLocalCache,
     persistentMultipleTabManager
 } from 'firebase/firestore';
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
-import { getAnalytics, logEvent } from "firebase/analytics";
+import { getAnalytics, Analytics } from "firebase/analytics";
+
 const firebaseConfig = {
     apiKey: "AIzaSyCS0K6ncPrKQ_3wqNC8uwUYzkjTx3N5Mvs",
     authDomain: "sitios-turisticos-tesis.firebaseapp.com",
@@ -18,14 +18,28 @@ const firebaseConfig = {
     measurementId: "G-WR2R0WGQXN"
 };
 
-export  const app = initializeApp(firebaseConfig);
+// Inicialización de la aplicación Firebase
+export const app = initializeApp(firebaseConfig);
+
+// Inicialización de Firestore con caché persistente (IndexedDB) para Web y Capacitor
 export const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager() // Evita conflictos si el usuario abre la app en varias pestañas
+        tabManager: persistentMultipleTabManager()
     })
 });
-export const auth = getAuth(app)
+
+// Servicios de autenticación y almacenamiento
+export const auth = getAuth(app);
 export const storage = getStorage(app);
 
+// Inicialización segura de Analytics tolerante a bloqueadores y entornos nativos
+let analyticsInstance: Analytics | null = null;
+if (typeof window !== "undefined") {
+    try {
+        analyticsInstance = getAnalytics(app);
+    } catch {
+        analyticsInstance = null;
+    }
+}
 
-export const analytics = getAnalytics(app);
+export const analytics = analyticsInstance;

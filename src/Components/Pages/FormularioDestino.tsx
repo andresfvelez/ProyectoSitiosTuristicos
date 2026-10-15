@@ -10,8 +10,6 @@ import {
     IconButton,
     Alert
 } from "@mui/material";
-
-// Iconos MUI
 import RestaurantIcon from "@mui/icons-material/DinnerDining";
 import HotelIcon from "@mui/icons-material/Hotel";
 import LandscapeIcon from '@mui/icons-material/Landscape';
@@ -26,12 +24,9 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-
 import { useNavigate } from 'react-router-dom';
-// Ant Design Components
 import { Button, Form, Input, InputNumber, Checkbox, Switch, Select, Tooltip, message, Popconfirm } from "antd";
 
-// Assets y Componentes Locales
 import Missingimg from "../../Layouts/Images/missing.png";
 import "./styles/PublicarDestino.css";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
@@ -122,13 +117,12 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         nit: datosIniciales?.nit || "",
         tagsEspeciales: datosIniciales?.tagsEspeciales || [],
         servicios: datosIniciales?.servicios || [],
-        petFriendly: datosIniciales?.petFriendly === true || (datosIniciales as any)?.petFriendly === "true",
-        accesibleSillaRuedas: datosIniciales?.accesibleSillaRuedas === true || (datosIniciales as any)?.accesibleSillaRuedas === "true",
+        petFriendly: datosIniciales?.petFriendly === true || String((datosIniciales as any)?.petFriendly) === "true",
+        accesibleSillaRuedas: datosIniciales?.accesibleSillaRuedas === true || String((datosIniciales as any)?.accesibleSillaRuedas) === "true",
         dificultad: datosIniciales?.dificultad || "Baja",
         contactoWhatsapp: datosIniciales?.contactoWhatsapp || "",
         queLlevar: datosIniciales?.queLlevar || "",
         puntuacion: datosIniciales?.puntuacion || 0,
-
         clima: (datosIniciales as any)?.clima || "calido",
         entorno: (datosIniciales as any)?.entorno || "naturaleza",
         rangoPresupuesto: (datosIniciales as any)?.rangoPresupuesto || "economico",
@@ -155,14 +149,13 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             setListaCiudades(opciones);
             setCargandoCiudades(false);
         };
-
         fetchCiudades();
     }, []);
 
     useEffect(() => {
         if (datosIniciales) {
-            const isPetFriendly = datosIniciales.petFriendly === true || (datosIniciales as any).petFriendly === "true";
-            const isAccesible = datosIniciales.accesibleSillaRuedas === true || (datosIniciales as any).accesibleSillaRuedas === "true";
+            const isPetFriendly = datosIniciales.petFriendly === true || String((datosIniciales as any).petFriendly) === "true";
+            const isAccesible = datosIniciales.accesibleSillaRuedas === true || String((datosIniciales as any).accesibleSillaRuedas) === "true";
 
             const datosNormalizados = {
                 ...datosIniciales,
@@ -205,7 +198,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
     useEffect(() => {
         const blobUrls = fotosLugar.map(file => URL.createObjectURL(file));
         setPreviewUrls([...imagenesExistentes, ...blobUrls]);
-
         return () => blobUrls.forEach(url => URL.revokeObjectURL(url));
     }, [imagenesExistentes, fotosLugar]);
 
@@ -230,8 +222,8 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                         lng: position.coords.longitude
                     });
                 },
-                (error) => {
-                    console.error("Error obteniendo ubicación:", error.message);
+                () => {
+                    // Fallback silencioso en caso de error de geolocalización
                 }
             );
         }
@@ -316,7 +308,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             }
         } catch (e) {
             hideLoading();
-            console.error("Error geocodificando la ciudad seleccionada:", e);
             message.error("Hubo un error al conectar con el mapa.");
         }
     };
@@ -345,6 +336,8 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                 dificultad: "",
                 queLlevar: "",
                 ...values,
+                latitud: userLocation.lat,
+                longitud: userLocation.lng,
                 ciudad: ciudadFinal,
                 imagenes: []
             };
@@ -374,17 +367,12 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
             setCargando(true);
 
             if (modo === 'crear') {
-                await guardarDestino(
-                    datosLimpios,
-                    fotosLugar,
-                    userLocation,
-                    usuarioActualId
-                );
-                message.success("¡Destino guardado y enviado a revisión correctamente!");
+                await guardarDestino(datosLimpios, fotosLugar, userLocation, usuarioActualId);
+                message.success("Destino guardado y enviado a revisión correctamente.");
                 form.resetFields();
                 setFotosLugar([]);
                 setImagenesExistentes([]);
-                navigate('/Destinos');
+                navigate('/Destinos', { state: { tabActiva: '2', recargar: Date.now() } });
             } else if (modo === 'editar' && datosIniciales?.id) {
                 await actualizarDestino(datosIniciales.id, datosLimpios);
 
@@ -396,14 +384,13 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                     await guardarImagenesDestino(datosIniciales.id, fotosLugar);
                 }
 
-                message.success("¡Destino actualizado correctamente!");
-                navigate('/Destinos');
+                message.success("Destino actualizado correctamente.");
+                navigate('/Destinos', { state: { tabActiva: '2', recargar: Date.now() } });
             }
 
             if (onExito) onExito();
 
         } catch (error) {
-            console.error(error);
             message.error("Hubo un error al procesar el registro");
         } finally {
             setCargando(false);
@@ -415,11 +402,10 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         setCargando(true);
         try {
             await confirmarDestino(datosIniciales.id);
-            message.success("¡Destino aprobado y publicado correctamente!");
+            message.success("Destino aprobado y publicado correctamente.");
             if (onExito) onExito();
             navigate('/admin/pendientes');
         } catch (error) {
-            console.error(error);
             message.error("Error al aprobar el destino");
             navigate('/admin/pendientes');
         } finally {
@@ -432,10 +418,9 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
         setCargando(true);
         try {
             await rechazarDestino(datosIniciales.id);
-            message.info("Destino rechazado y eliminado correctamente");
+            message.info("Destino rechazado y eliminado correctamente.");
             if (onExito) onExito();
         } catch (error) {
-            console.error(error);
             message.error("Error al rechazar el destino");
         } finally {
             setCargando(false);
@@ -552,7 +537,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                 {modo === 'aprobar' && previewUrls.length > 0 && (
                                     <Box sx={{ mt: 2, mb: 3 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight="700" display="block" sx={{ mb: 1 }}>
-                                            🖼️ Imágenes del Destino en Revisión ({previewUrls.length}/6):
+                                            Imágenes del Destino en Revisión ({previewUrls.length}/6):
                                         </Typography>
                                         <Stack direction="row" spacing={1.5} sx={{ overflowX: 'auto', pb: 1 }}>
                                             {previewUrls.map((url, idx) => (
@@ -629,7 +614,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                     <>
                                         <Divider sx={{ my: 3 }} />
                                         <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 2, color: "#0284c7" }}>
-                                            🎯 Información del Sitio
+                                            Información del Sitio
                                         </Typography>
 
                                         <Grid container spacing={2}>
@@ -717,7 +702,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                     <Box sx={{ mt: 1 }}>
                                                         {validacionRNT.cargando ? (
                                                             <Alert severity="info" icon={false} sx={{ py: 0.5, px: 1.5, fontSize: "0.75rem", borderRadius: "8px" }}>
-                                                                ⏳ Verificando en MinCIT...
+                                                                Verificando en MinCIT...
                                                             </Alert>
                                                         ) : validacionRNT.resultado?.valido ? (
                                                             <Alert severity="success" sx={{ py: 0.5, px: 1.5, fontSize: "0.75rem", borderRadius: "8px", fontWeight: 600 }}>
@@ -760,7 +745,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                                 <Box sx={{ mt: 1 }}>
                                                     {validacionUNESCO.cargando ? (
                                                         <Alert severity="info" icon={false} sx={{ py: 0.5, px: 1.5, fontSize: "0.75rem", borderRadius: "8px" }}>
-                                                            ⏳ Verificando en UNESCO...
+                                                            Verificando en UNESCO...
                                                         </Alert>
                                                     ) : validacionUNESCO.resultado?.valido ? (
                                                         <Alert severity="success" sx={{ py: 0.5, px: 1.5, fontSize: "0.75rem", borderRadius: "8px", fontWeight: 600 }}>
@@ -779,9 +764,9 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
 
                                 <Divider sx={{ my: 2 }} />
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mb: 1.5, color: "#0f172a" }}>
-                                    {preview.categoria === 'hotel' && '🏨 Comodidades del Alojamiento'}
-                                    {preview.categoria === 'restaurante' && '🍽️ Especialidad / Tipo de Cocina'}
-                                    {preview.categoria === 'aventura' && '🎯 Actividades Disponibles'}
+                                    {preview.categoria === 'hotel' && 'Comodidades del Alojamiento'}
+                                    {preview.categoria === 'restaurante' && 'Especialidad / Tipo de Cocina'}
+                                    {preview.categoria === 'aventura' && 'Actividades Disponibles'}
                                 </Typography>
                                 <Form.Item name="tagsEspeciales">
                                     <Checkbox.Group
@@ -791,7 +776,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                 </Form.Item>
 
                                 <Typography variant="subtitle1" fontWeight="800" sx={{ mt: 2, mb: 1.5, color: "#0f172a" }}>
-                                    🛠️ Servicios Generales
+                                    Servicios Generales
                                 </Typography>
                                 <Form.Item name="servicios">
                                     <Checkbox.Group
@@ -818,7 +803,11 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         <Form.Item name="petFriendly" valuePropName="checked" noStyle>
                                             <Switch
                                                 size="small"
-                                                onChange={(checked) => setPreview((prev: any) => ({ ...prev, petFriendly: checked }))}
+                                                checked={preview.petFriendly}
+                                                onChange={(checked) => {
+                                                    form.setFieldsValue({ petFriendly: checked });
+                                                    setPreview((prev: any) => ({ ...prev, petFriendly: checked }));
+                                                }}
                                             />
                                         </Form.Item>
                                     </Stack>
@@ -829,7 +818,11 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         <Form.Item name="accesibleSillaRuedas" valuePropName="checked" noStyle>
                                             <Switch
                                                 size="small"
-                                                onChange={(checked) => setPreview((prev: any) => ({ ...prev, accesibleSillaRuedas: checked }))}
+                                                checked={preview.accesibleSillaRuedas}
+                                                onChange={(checked) => {
+                                                    form.setFieldsValue({ accesibleSillaRuedas: checked });
+                                                    setPreview((prev: any) => ({ ...prev, accesibleSillaRuedas: checked }));
+                                                }}
                                             />
                                         </Form.Item>
                                     </Stack>
@@ -869,9 +862,9 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         <Grid item xs={12} sm={6}>
                                             <Form.Item name="dificultad" label={<strong>Nivel de Dificultad</strong>}>
                                                 <Select placeholder="Selecciona el nivel">
-                                                    <Select.Option value="Baja">🟢 Bajo (Relax / Apto para todos)</Select.Option>
-                                                    <Select.Option value="Media">🟡 Moderado (Requiere caminata)</Select.Option>
-                                                    <Select.Option value="Alta">🔴 Exigente (Senderismo avanzado)</Select.Option>
+                                                    <Select.Option value="Baja">Bajo (Relax / Apto para todos)</Select.Option>
+                                                    <Select.Option value="Media">Moderado (Requiere caminata)</Select.Option>
+                                                    <Select.Option value="Alta">Exigente (Senderismo avanzado)</Select.Option>
                                                 </Select>
                                             </Form.Item>
                                         </Grid>
@@ -948,7 +941,6 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                         </Paper>
                     </Grid>
 
-                    {/* VISTA PREVIA STICKY */}
                     <Grid item xs={12} md={5}>
                         <Box className="preview-sticky">
                             <Typography variant="h6" fontWeight="800" sx={{ mb: 2, color: "#475569" }}>
@@ -1079,7 +1071,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
                                         {preview.nombre || "Título del Destino"}
                                     </Typography>
 
-                                    <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.88rem", mb: 2, wordBreak: "break-word" }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.88rem", mb: 2, wordBreak: "break-word" }}>
                                         {preview.descripcion || "Aquí aparecerá la descripción que escribas..."}
                                     </Typography>
 
@@ -1187,7 +1179,7 @@ export const FormularioDestino: React.FC<FormularioDestinoProps> = ({
 
                             <div className="info-note" style={{ marginTop: "16px" }}>
                                 <Typography variant="caption" color="#039be5" fontWeight="bold">
-                                    * Así es como aparecerá tu destino en el buscador principal.
+                                    Así es como aparecerá tu destino en el buscador principal.
                                 </Typography>
                             </div>
 

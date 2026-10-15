@@ -1,21 +1,23 @@
-import * as React from 'react';
-import CssBaseline from '@mui/material/CssBaseline';
-import TextField from '@mui/material/TextField';
-import Link from '@mui/material/Link';
-import Grid from '@mui/material/Grid';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Container from '@mui/material/Container';
-import Paper from '@mui/material/Paper';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    CssBaseline,
+    TextField,
+    Link,
+    Grid,
+    Box,
+    Typography,
+    Container,
+    Paper,
+    Button,
+    IconButton,
+    InputAdornment
+} from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ReCAPTCHA from "react-google-recaptcha";
+import ReCAPTCHA from 'react-google-recaptcha';
+
 import { mostrarAlerta } from '../../Layouts/Utils/alertUtils';
 import { registrarNuevoUsuario, obtenerClaveRecaptcha } from '../../services/usuariosService';
 
@@ -23,6 +25,7 @@ const theme = createTheme();
 
 export default function SignUp() {
     const navigate = useNavigate();
+
     const [fullName, setFullName] = useState<string>('');
     const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
@@ -43,11 +46,20 @@ export default function SignUp() {
         captchaValido;
 
     useEffect(() => {
+        let isMounted = true;
+
         const cargarKeyRecaptcha = async () => {
             const key = await obtenerClaveRecaptcha();
-            setRecaptchaKey(key);
+            if (isMounted) {
+                setRecaptchaKey(key);
+            }
         };
+
         cargarKeyRecaptcha();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const resetearCaptcha = () => {
@@ -56,7 +68,7 @@ export default function SignUp() {
     };
 
     const handleCaptchaChange = (token: string | null) => {
-        setCaptchaValido(!!token);
+        setCaptchaValido(Boolean(token));
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -77,20 +89,19 @@ export default function SignUp() {
         try {
             await registrarNuevoUsuario(fullName, email, password);
 
-            mostrarAlerta({
-                title: '¡Cuenta creada!',
-                text: 'Tu registro ha sido completado. Por favor completa tu perfil para continuar.',
+            await mostrarAlerta({
+                title: 'Registro exitoso',
+                text: 'Tu cuenta ha sido creada correctamente. Completa tus preferencias de viaje para continuar.',
                 icon: 'success',
                 confirmButtonText: 'Ir a mi perfil',
                 showCloseButton: false,
                 allowOutsideClick: false,
                 allowEscapeKey: false
-            }).then(() => {
-                navigate("/profile");
             });
 
+            navigate('/profile');
+
         } catch (error: any) {
-            console.error("❌ Error en registro:", error);
             resetearCaptcha();
 
             if (error.code === 'auth/password-does-not-meet-requirements') {
@@ -110,8 +121,8 @@ export default function SignUp() {
 
                 const htmlLista = listaRequisitos.length > 0
                     ? `<ul style="text-align: left; margin-top: 12px; padding-left: 24px; line-height: 1.6; color: #475569; font-size: 0.9rem;">
-              ${listaRequisitos.map((item: string) => `<li style="margin-bottom: 4px;">${item}</li>`).join('')}
-             </ul>`
+                        ${listaRequisitos.map((item: string) => `<li style="margin-bottom: 4px;">${item}</li>`).join('')}
+                       </ul>`
                     : '<p style="color: #475569;">La contraseña no cumple con los criterios de seguridad definidos.</p>';
 
                 mostrarAlerta({
@@ -123,19 +134,19 @@ export default function SignUp() {
             } else if (error.code === 'auth/email-already-in-use') {
                 mostrarAlerta({
                     title: 'Correo registrado',
-                    text: 'Este correo electrónico ya se encuentra registrado en la plataforma.',
+                    text: 'Este correo electrónico ya se encuentra vinculado a una cuenta activa.',
                     icon: 'error'
                 });
             } else if (error.code === 'auth/invalid-email') {
                 mostrarAlerta({
                     title: 'Correo inválido',
-                    text: 'El formato del correo electrónico ingresado no es válido.',
+                    text: 'La dirección de correo electrónico ingresada no tiene un formato válido.',
                     icon: 'error'
                 });
             } else {
                 mostrarAlerta({
                     title: 'Error de registro',
-                    text: 'No se pudo completar la creación de la cuenta. Inténtalo nuevamente.',
+                    text: 'No fue posible completar la creación de la cuenta en este momento. Inténtalo nuevamente.',
                     icon: 'error'
                 });
             }
@@ -152,15 +163,15 @@ export default function SignUp() {
                     justifyContent: 'center',
                     backgroundColor: '#f8fafc',
                     py: 6,
-                    px: 2
+                    px: { xs: 1, sm: 2 }
                 }}
             >
-                <Container component="main" maxWidth="xs">
+                <Container component="main" maxWidth="xs" sx={{ px: { xs: 1, sm: 2 } }}>
                     <CssBaseline />
                     <Paper
                         elevation={0}
                         sx={{
-                            p: { xs: 3, sm: 4 },
+                            p: { xs: 2.5, sm: 4 },
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -215,7 +226,7 @@ export default function SignUp() {
                                             endAdornment: (
                                                 <InputAdornment position="end">
                                                     <IconButton
-                                                        aria-label="toggle password visibility"
+                                                        aria-label="Alternar visibilidad de contraseña"
                                                         onClick={() => setMostrarPassword(!mostrarPassword)}
                                                         edge="end"
                                                     >
@@ -243,7 +254,7 @@ export default function SignUp() {
                                             endAdornment: (
                                                 <InputAdornment position="end">
                                                     <IconButton
-                                                        aria-label="toggle repeat password visibility"
+                                                        aria-label="Alternar visibilidad de confirmación de contraseña"
                                                         onClick={() => setMostrarRPassword(!mostrarRPassword)}
                                                         edge="end"
                                                     >
@@ -257,7 +268,27 @@ export default function SignUp() {
 
                                 <Grid item xs={12}>
                                     {recaptchaKey && (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', my: 1 }}>
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                my: 1,
+                                                width: '100%',
+                                                overflow: 'hidden',
+                                                '@media (max-width: 400px)': {
+                                                    '& > div': {
+                                                        transform: 'scale(0.88)',
+                                                        transformOrigin: 'center top'
+                                                    }
+                                                },
+                                                '@media (max-width: 340px)': {
+                                                    '& > div': {
+                                                        transform: 'scale(0.78)',
+                                                        transformOrigin: 'center top'
+                                                    }
+                                                }
+                                            }}
+                                        >
                                             <ReCAPTCHA
                                                 ref={recaptchaRef}
                                                 sitekey={recaptchaKey}

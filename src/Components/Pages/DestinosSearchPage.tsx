@@ -19,7 +19,7 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import EditIcon from "@mui/icons-material/Edit";
 import StarIcon from "@mui/icons-material/Star";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useNavigate, useLocation } from "react-router-dom"; // 👈 Añadimos useLocation
+import { useNavigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { LugarTuristico } from "../models/LugarTuristico";
@@ -28,9 +28,8 @@ import {
     obtenerLugaresPorUsuario,
     obtenerImagenesPorDestino,
     eliminarDestino,
-    obtenerFavoritosPorUsuario // 👈 Importamos la función de favoritos
+    obtenerFavoritosPorUsuario
 } from "../../services/lugaresService";
-
 
 import {
     OPCIONES_CLIMA,
@@ -43,7 +42,7 @@ import {
 import Missingimg from "../../Layouts/Images/missing.png";
 import { obtenerCiudadesColombia } from "../../services/ApiServices";
 
-// Helper para interpretar formato de imagen
+// Normalizador de formato para imágenes locales, remotas y base64
 const getImagenSrc = (src?: string | null) => {
     if (!src) return Missingimg;
     if (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:image')) {
@@ -52,7 +51,6 @@ const getImagenSrc = (src?: string | null) => {
     return `data:image/png;base64,${src}`;
 };
 
-// 🎴 INTERFAZ DE PROPS PARA LA TARJETA
 interface TarjetaDestinoProps {
     lugar: LugarTuristico;
     tabActiva: string;
@@ -64,7 +62,7 @@ interface TarjetaDestinoProps {
 const normalizarTexto = (texto: string) =>
     texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-// 🎴 COMPONENTE INDIVIDUAL DE TARJETA
+// Componente individual de tarjeta para presentación en cuadrícula
 const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
                                                            lugar,
                                                            tabActiva,
@@ -96,7 +94,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
 
         const exito = await eliminarDestino(lugar.id, usuario.uid);
         if (exito) {
-            message.success("Destino eliminado y archivado correctamente.");
+            message.success("Destino archivado correctamente.");
             onBorradoExitoso();
         } else {
             message.error("No se pudo eliminar el destino.");
@@ -173,7 +171,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
                         <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                             <MuiButton
                                 variant="outlined"
-                                onClick={() => navigate(`/pagina2/${lugar.id}`)}
+                                onClick={() => navigate(`/destino/${lugar.id}`)}
                                 sx={{
                                     borderRadius: "10px",
                                     textTransform: "none",
@@ -198,7 +196,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
 
                             <Popconfirm
                                 title="¿Eliminar destino?"
-                                description="Se moverá a auditoría y ya no será visible."
+                                description="Se moverá a auditoría y ya no será visible al público."
                                 onConfirm={handleConfirmarBorrado}
                                 okText="Sí, eliminar"
                                 cancelText="Cancelar"
@@ -217,7 +215,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
                         <MuiButton
                             fullWidth
                             variant="outlined"
-                            onClick={() => navigate(`/pagina2/${lugar.id}`)}
+                            onClick={() => navigate(`/destino/${lugar.id}`)}
                             sx={{ borderRadius: "10px", textTransform: "none", fontWeight: "bold" }}
                         >
                             Ver Detalle
@@ -229,8 +227,7 @@ const TarjetaDestino: React.FC<TarjetaDestinoProps> = ({
     );
 };
 
-// 🏛️ PÁGINA PRINCIPAL
-export default function DestinosPage() {
+export default function DestinosSearchPage() {
     const { usuario, rol } = useAuth();
     const location = useLocation();
 
@@ -238,15 +235,12 @@ export default function DestinosPage() {
     const [busqueda, setBusqueda] = useState<string>("");
     const [cargando, setCargando] = useState<boolean>(true);
 
-    // 🌟 ESTADO ÚNICO DE CIUDADES
     const [opcionesCiudades, setOpcionesCiudades] = useState<{ label: string; value: string }[]>([]);
     const [cargandoCiudades, setCargandoCiudades] = useState<boolean>(false);
 
-    // ESTADO DE PAGINACIÓN DINÁMICA
     const [paginaActual, setPaginaActual] = useState<number>(1);
     const [elementosPorPagina, setElementosPorPagina] = useState<number>(12);
 
-    // ESTADOS DE FILTROS MAESTROS
     const [filtroCiudad, setFiltroCiudad] = useState<string | null>(null);
     const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
     const [filtroClima, setFiltroClima] = useState<string | null>(null);
@@ -255,21 +249,18 @@ export default function DestinosPage() {
     const [filtroAcceso, setFiltroAcceso] = useState<string | null>(null);
     const [filtroRitmo, setFiltroRitmo] = useState<string | null>(null);
 
-    // ESTADOS DE LISTAS
     const [todosLosLugares, setTodosLosLugares] = useState<LugarTuristico[]>([]);
     const [misLugares, setMisLugares] = useState<LugarTuristico[]>([]);
-    const [misFavoritos, setMisFavoritos] = useState<LugarTuristico[]>([]); // 👈 Estado para Favoritos
+    const [misFavoritos, setMisFavoritos] = useState<LugarTuristico[]>([]);
 
-    //Autodireccionar a la pestaña de favoritos, una vez realizado se pierde el estado
+    // Sincronización de la pestaña según el estado de navegación
     useEffect(() => {
         if (location.state && location.state.tabActiva) {
             setTabActiva(location.state.tabActiva);
-
-            // Limpia el historial para que si el usuario recarga con F5 vuelva a la Tab 1
-            window.history.replaceState({}, document.title);
         }
     }, [location.state]);
 
+    // Consulta de datos en Firestore
     const cargarData = async () => {
         setCargando(true);
         const publicos = await obtenerLugares();
@@ -279,25 +270,26 @@ export default function DestinosPage() {
             const propios = await obtenerLugaresPorUsuario(usuario.uid);
             setMisLugares(propios);
 
-            const favoritos = await obtenerFavoritosPorUsuario(usuario.uid); // 👈 Carga de Favoritos
+            const favoritos = await obtenerFavoritosPorUsuario(usuario.uid);
             setMisFavoritos(favoritos);
         }
 
         setCargando(false);
     };
 
+    // Actualiza los registros ante cambios de autenticación o reingreso por navegación
     useEffect(() => {
         cargarData();
-    }, [usuario]);
+    }, [usuario, location.key, location.state]);
 
-    // 📍 ÚNICO EFFECT PARA CARGAR TODAS LAS CIUDADES DESDE EL SERVICIO API
+    // Obtención de municipios disponibles
     useEffect(() => {
         const fetchCiudades = async () => {
             setCargandoCiudades(true);
             const ciudades = await obtenerCiudadesColombia();
 
             const opciones = ciudades.map((c) => ({
-                label: `📍 ${c.label}`,
+                label: c.label,
                 value: c.value
             }));
 
@@ -308,7 +300,7 @@ export default function DestinosPage() {
         fetchCiudades();
     }, []);
 
-    // RESETEAR A LA PÁGINA 1 SI CAMBIA CUALQUIER FILTRO
+    // Reinicio de página ante modificación de filtros
     useEffect(() => {
         setPaginaActual(1);
     }, [
@@ -323,7 +315,7 @@ export default function DestinosPage() {
         tabActiva
     ]);
 
-    // Filtrado multinivel
+    // Filtrado multidimensional en memoria
     const filtrarLista = (lista: LugarTuristico[]) => {
         return lista.filter((l) => {
             const queryLower = busqueda.toLowerCase().trim();
@@ -376,7 +368,6 @@ export default function DestinosPage() {
         setFiltroRitmo(null);
     };
 
-    // 👈 Selección de lista base en función del Tab
     const getListaBase = () => {
         if (tabActiva === "1") return todosLosLugares;
         if (tabActiva === "2") return misLugares;
@@ -386,7 +377,7 @@ export default function DestinosPage() {
 
     const listaFiltrada = filtrarLista(getListaBase());
 
-    // CÁLCULO DE ELEMENTOS PARA LA PÁGINA ACTUAL
+    // Segmentación para paginación
     const inicioIndex = (paginaActual - 1) * elementosPorPagina;
     const finIndex = inicioIndex + elementosPorPagina;
     const listaPaginada = listaFiltrada.slice(inicioIndex, finIndex);
@@ -402,7 +393,6 @@ export default function DestinosPage() {
 
     return (
         <Container maxWidth="xl" sx={{ py: 4 }}>
-            {/* PANEL DE FILTROS */}
             <Paper
                 elevation={0}
                 sx={{
@@ -420,7 +410,7 @@ export default function DestinosPage() {
                             Explora y Gestiona Destinos
                         </Typography>
                         <Typography variant="body2" sx={{ color: "#64748b", fontWeight: "500" }}>
-                            Encuentra lugares increíbles o administra los sitios que has compartido con la comunidad.
+                            Encuentra lugares o administra los sitios que has compartido con la comunidad.
                         </Typography>
                     </Box>
 
@@ -443,9 +433,8 @@ export default function DestinosPage() {
                     )}
                 </Stack>
 
-                {/* BÚSQUEDA PRINCIPAL */}
                 <Typography variant="caption" fontWeight="800" sx={{ color: "#0284c7", textTransform: "uppercase", letterSpacing: "0.5px", mb: 1, display: "block" }}>
-                    🔍 Búsqueda Principal
+                    Búsqueda Principal
                 </Typography>
                 <Grid container spacing={2} sx={{ mb: 2.5 }}>
                     <Grid item xs={12} md={6}>
@@ -499,17 +488,16 @@ export default function DestinosPage() {
                             style={{ width: "100%", height: "44px" }}
                             size="large"
                             options={[
-                                { label: '🏔️ Aventura', value: 'aventura' },
-                                { label: '🍽️ Restaurante', value: 'restaurante' },
-                                { label: '🏨 Hotel', value: 'hotel' }
+                                { label: 'Aventura', value: 'aventura' },
+                                { label: 'Restaurante', value: 'restaurante' },
+                                { label: 'Hotel', value: 'hotel' }
                             ]}
                         />
                     </Grid>
                 </Grid>
 
-                {/* FILTROS DE EXPERIENCIA */}
                 <Typography variant="caption" fontWeight="800" sx={{ color: "#0284c7", textTransform: "uppercase", letterSpacing: "0.5px", mb: 1, display: "block" }}>
-                    🎯 Filtros por Experiencia
+                    Filtros por Experiencia
                 </Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6} md={2.4}>
@@ -589,7 +577,6 @@ export default function DestinosPage() {
                 </Grid>
             </Paper>
 
-            {/* 👈 PESTAÑAS CONDICIONALES */}
             <Box
                 sx={{
                     "& .ant-tabs-nav-wrap": {
@@ -597,11 +584,10 @@ export default function DestinosPage() {
                     },
                     "& .ant-tabs-nav-list": {
                         flexWrap: { xs: "wrap", sm: "nowrap" },
-                        justifyContent: { xs: "center", sm: "flex-start" }, // 👈 Centra los elementos al saltar de línea
+                        justifyContent: { xs: "center", sm: "flex-start" },
                         gap: { xs: "8px", sm: "0px" }
                     },
                     "& .ant-tabs-tab": {
-                        // Margen simétrico (izq/der) en móviles para que el centrado sea perfecto
                         margin: { xs: "4px 6px !important", sm: "0 32px 0 0 !important" }
                     }
                 }}
@@ -613,21 +599,20 @@ export default function DestinosPage() {
                     items={[
                         {
                             key: "1",
-                            label: `🌏 Destinos Turísticos (${todosLosLugares.length})`,
+                            label: `Destinos Turísticos (${todosLosLugares.length})`,
                         },
                         ...(usuario ? [{
                             key: "2",
-                            label: `👤 Mis Destinos Publicados (${misLugares.length})`,
+                            label: `Mis Destinos Publicados (${misLugares.length})`,
                         }] : []),
                         ...(usuario && misFavoritos.length > 0 ? [{
                             key: "3",
-                            label: `❤️ Favoritos (${misFavoritos.length})`,
+                            label: `Favoritos (${misFavoritos.length})`,
                         }] : [])
                     ]}
                 />
             </Box>
 
-            {/* GRID DE DESTINOS PAGINADO */}
             <Box sx={{ mt: 3 }}>
                 {cargando ? (
                     <Box sx={{ textAlign: "center", py: 8 }}>
@@ -660,7 +645,6 @@ export default function DestinosPage() {
                             ))}
                         </Grid>
 
-                        {/* CONTROLES DE PAGINACIÓN */}
                         <Box
                             sx={{
                                 display: "flex",

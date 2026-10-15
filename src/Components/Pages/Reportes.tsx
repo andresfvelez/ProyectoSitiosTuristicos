@@ -3,7 +3,6 @@ import { Box, Typography, Paper, Stack, Chip as MuiChip, IconButton } from '@mui
 import { Table, Button, message, Popconfirm, Tag, List, Tabs } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-// Icons
 import FlagIcon from '@mui/icons-material/Flag';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import GppBadIcon from '@mui/icons-material/GppBad';
@@ -21,63 +20,85 @@ import {
     darDeBajaLugar
 } from '../../services/lugaresService';
 
-const ReportesAdmin = () => {
+const ReportesAdmin: React.FC = () => {
     const navigate = useNavigate();
     const [dataPendientes, setDataPendientes] = useState<any[]>([]);
     const [dataRevision, setDataRevision] = useState<any[]>([]);
     const [cargando, setCargando] = useState<boolean>(true);
 
+    // Consulta concurrente de reportes pendientes y destinos bajo revisión
     const cargarDatos = async () => {
+        let isMounted = true;
         setCargando(true);
-        const [pendientes, revisiones] = await Promise.all([
-            obtenerLugaresConReportesPendientes(),
-            obtenerLugaresEnRevision()
-        ]);
-        setDataPendientes(pendientes);
-        setDataRevision(revisiones);
-        setCargando(false);
+
+        try {
+            const [pendientes, revisiones] = await Promise.all([
+                obtenerLugaresConReportesPendientes(),
+                obtenerLugaresEnRevision()
+            ]);
+
+            if (isMounted) {
+                setDataPendientes(pendientes || []);
+                setDataRevision(revisiones || []);
+            }
+        } catch (error) {
+            if (isMounted) {
+                setDataPendientes([]);
+                setDataRevision([]);
+            }
+        } finally {
+            if (isMounted) {
+                setCargando(false);
+            }
+        }
+
+        return () => {
+            isMounted = false;
+        };
     };
 
     useEffect(() => {
         cargarDatos();
     }, []);
 
-    // -- MANEJADORES DE ACCIONES --
+    // Resolución favorable de denuncias y restauración del contenido
     const handleDesestimar = async (lugarId: string) => {
         const exito = await desestimarReportesLugar(lugarId);
         if (exito) {
-            message.success("Los reportes fueron desestimados y el sitio volvió a estar publicado.");
+            message.success("Los reportes fueron desestimados y el destino ha sido restaurado.");
             cargarDatos();
         } else {
             message.error("Error al desestimar los reportes.");
         }
     };
 
+    // Ocultamiento preventivo del destino mientras se evalúa la incidencia
     const handleRevision = async (lugarId: string) => {
         const exito = await ponerLugarEnRevision(lugarId);
         if (exito) {
-            message.warning("El lugar ha sido ocultado y puesto en revisión.");
+            message.warning("El destino ha sido ocultado preventivamente y puesto en revisión.");
             cargarDatos();
         } else {
-            message.error("Error al poner el lugar en revisión.");
+            message.error("Error al suspender temporalmente el destino.");
         }
     };
 
+    // Retiro permanente de la publicación en la plataforma
     const handleDarDeBaja = async (lugarId: string) => {
         const exito = await darDeBajaLugar(lugarId);
         if (exito) {
-            message.error("El sitio ha sido dado de baja definitivamente.");
+            message.error("El destino ha sido dado de baja permanentemente.");
             cargarDatos();
         } else {
-            message.error("Error al dar de baja el sitio.");
+            message.error("Error al dar de baja el destino.");
         }
     };
 
-    // -- RENDER DEL DESPLEGABLE --
+    // Subvista expansible para auditoría de quejas individuales
     const expandedRowRender = (record: any) => (
         <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', my: 1 }}>
             <Typography variant="subtitle2" fontWeight="800" sx={{ mb: 1.5, color: '#334155' }}>
-                Motivos reportados y Usuarios:
+                Historial de Denuncias y Usuarios:
             </Typography>
             <List
                 size="small"
@@ -91,14 +112,14 @@ const ReportesAdmin = () => {
                             <Stack direction="row" alignItems="center" spacing={0.5}>
                                 <PersonIcon sx={{ fontSize: 14, color: '#0ea5e9' }} />
                                 <Typography variant="caption" color="#0369a1" fontWeight="bold" sx={{ wordBreak: 'break-word' }}>
-                                    {repo.usuarioNombre || 'Usuario Desconocido'}
+                                    {repo.usuarioNombre || 'Usuario Anónimo'}
                                 </Typography>
                             </Stack>
 
                             <Typography variant="caption" color="#cbd5e1" fontWeight="bold">•</Typography>
 
                             <Typography variant="caption" color="#64748b" sx={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                                ID: {repo.usuarioId}
+                                UID: {repo.usuarioId}
                             </Typography>
                         </Stack>
                     </List.Item>
@@ -107,21 +128,21 @@ const ReportesAdmin = () => {
         </Box>
     );
 
-    // -- COLUMNAS PESTAÑA 1: NUEVOS REPORTES (ANCHOS EN PX) --
+    // Definición de columnas para la pestaña de nuevos reportes
     const colsPendientes = [
         {
             title: 'Destino Reportado',
             dataIndex: ['lugar', 'nombre'],
             key: 'nombre',
             width: 200,
-            render: (text: string) => <strong style={{ wordBreak: 'break-word' }}>{text}</strong>,
+            render: (text: string) => <strong style={{ wordBreak: 'break-word', color: '#0f172a' }}>{text || 'Sin nombre'}</strong>,
         },
         {
             title: 'Categoría',
             dataIndex: ['lugar', 'categoria'],
             key: 'categoria',
             width: 130,
-            render: (cat: string) => <Tag color="blue">{cat?.toUpperCase()}</Tag>,
+            render: (cat: string) => <Tag color="blue" style={{ fontWeight: 'bold' }}>{(cat || 'aventura').toUpperCase()}</Tag>,
         },
         {
             title: 'Reportes Acumulados',
@@ -129,7 +150,13 @@ const ReportesAdmin = () => {
             key: 'cantidad',
             width: 170,
             render: (reportes: any[]) => (
-                <MuiChip icon={<FlagIcon style={{ fontSize: 16 }} />} label={`${reportes.length} Pendientes`} color="error" size="small" sx={{ fontWeight: 'bold' }} />
+                <MuiChip
+                    icon={<FlagIcon style={{ fontSize: 16 }} />}
+                    label={`${reportes?.length || 0} Pendientes`}
+                    color="error"
+                    size="small"
+                    sx={{ fontWeight: 'bold' }}
+                />
             ),
         },
         {
@@ -140,9 +167,9 @@ const ReportesAdmin = () => {
                 <Stack direction="row" spacing={1.5}>
                     <Popconfirm
                         title="¿Desestimar reportes?"
-                        description="El lugar continuará publicado libremente."
+                        description="El destino permanecerá publicado sin restricciones."
                         onConfirm={() => handleDesestimar(record.lugar.id)}
-                        okText="Sí"
+                        okText="Sí, desestimar"
                         cancelText="Cancelar"
                         placement="bottomRight"
                         overlayStyle={{ maxWidth: '280px' }}
@@ -152,7 +179,8 @@ const ReportesAdmin = () => {
                         </Button>
                     </Popconfirm>
                     <Popconfirm
-                        title="¿Poner en revisión (ocultar)?"
+                        title="¿Poner en revisión preventiva?"
+                        description="El sitio se ocultará temporalmente del catálogo público."
                         onConfirm={() => handleRevision(record.lugar.id)}
                         okText="Ocultar"
                         cancelText="Cancelar"
@@ -169,14 +197,14 @@ const ReportesAdmin = () => {
         },
     ];
 
-    // -- COLUMNAS PESTAÑA 2: EN REVISIÓN (ANCHOS EN PX) --
+    // Definición de columnas para la pestaña de sitios bajo revisión
     const colsRevision = [
         {
             title: 'Destino en Revisión',
             dataIndex: ['lugar', 'nombre'],
             key: 'nombre',
             width: 200,
-            render: (text: string) => <strong style={{ wordBreak: 'break-word' }}>{text}</strong>,
+            render: (text: string) => <strong style={{ wordBreak: 'break-word', color: '#0f172a' }}>{text || 'Sin nombre'}</strong>,
         },
         {
             title: 'Reportes Vinculados',
@@ -184,7 +212,12 @@ const ReportesAdmin = () => {
             key: 'cantidad',
             width: 170,
             render: (reportes: any[]) => (
-                <MuiChip label={`${reportes.length} Registrados`} color="warning" size="small" sx={{ fontWeight: 'bold' }} />
+                <MuiChip
+                    label={`${reportes?.length || 0} Registrados`}
+                    color="warning"
+                    size="small"
+                    sx={{ fontWeight: 'bold' }}
+                />
             ),
         },
         {
@@ -196,14 +229,14 @@ const ReportesAdmin = () => {
                     <Button
                         type="primary"
                         style={{ borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#0284c7' }}
-                        onClick={() => navigate(`/pagina2/${record.lugar.id}`)}
+                        onClick={() => navigate(`/destino/${record.lugar.id}`)}
                     >
                         <RemoveRedEyeIcon style={{ fontSize: 18 }} /> Previsualizar
                     </Button>
 
                     <Popconfirm
                         title="¿Desestimar reportes?"
-                        description="El lugar se restaurará a la plataforma pública."
+                        description="El destino se reactivará en la plataforma pública."
                         onConfirm={() => handleDesestimar(record.lugar.id)}
                         okText="Restaurar"
                         cancelText="Cancelar"
@@ -216,10 +249,10 @@ const ReportesAdmin = () => {
                     </Popconfirm>
 
                     <Popconfirm
-                        title="¿Dar de baja este sitio?"
-                        description="El sitio cambiará su estado a 'dado de baja' permanentemente."
+                        title="¿Dar de baja definitiva?"
+                        description="El registro cambiará su estado a inactivo de forma permanente."
                         onConfirm={() => handleDarDeBaja(record.lugar.id)}
-                        okText="Sí, Dar de baja"
+                        okText="Dar de baja"
                         cancelText="Cancelar"
                         okButtonProps={{ danger: true }}
                         placement="bottomRight"
@@ -234,6 +267,7 @@ const ReportesAdmin = () => {
         },
     ];
 
+    // Configuración para el control de filas desplegables
     const configExpansion = {
         expandedRowRender,
         expandIcon: ({ expanded, onExpand, record }: any) =>
@@ -254,11 +288,11 @@ const ReportesAdmin = () => {
                 <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
                     <FlagIcon sx={{ fontSize: { xs: 28, sm: 36 }, color: "#ef4444" }} />
                     <Box>
-                        <Typography variant="h5" fontWeight="800" sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
+                        <Typography variant="h5" fontWeight="800" sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" }, color: '#0f172a' }}>
                             Centro de Moderación
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.82rem", sm: "0.875rem" } }}>
-                            Gestiona los reportes de los usuarios y audita los lugares conflictivos.
+                            Auditoría de quejas ciudadanas y gestión disciplinaria de sitios turísticos.
                         </Typography>
                     </Box>
                 </Stack>
@@ -285,7 +319,7 @@ const ReportesAdmin = () => {
                                 key: "1",
                                 label: (
                                     <span style={{ fontWeight: 'bold' }}>
-                                        🚩 Nuevos Reportes ({dataPendientes.length})
+                                        Nuevos Reportes ({dataPendientes.length})
                                     </span>
                                 ),
                                 children: (
@@ -304,7 +338,7 @@ const ReportesAdmin = () => {
                                 key: "2",
                                 label: (
                                     <span style={{ fontWeight: 'bold' }}>
-                                        ⚠️ Sitios en Revisión ({dataRevision.length})
+                                        Sitios en Revisión ({dataRevision.length})
                                     </span>
                                 ),
                                 children: (

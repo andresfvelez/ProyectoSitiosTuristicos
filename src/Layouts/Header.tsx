@@ -6,11 +6,9 @@ import "../Components/Pages/styles/Header.css";
 import { useAuth } from "../auth/AuthProvider";
 import { signOut } from 'firebase/auth';
 import { auth } from "../firebase/firebaseConfig";
-import { obtenerFotoPerfilUsuario } from '../services/usuariosService';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { obtenerFotoPerfilUsuario, obtenerPerfilUsuario } from '../services/usuariosService';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-
-// Material UI Imports
+import logoApp from '../Imagenes_referencia/logo.png';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -34,17 +32,21 @@ import Button from '@mui/material/Button';
 
 import { EstadoConexion } from "./EstadoConexion";
 import { DEFAULT_AVATAR } from './Images/defaulAvatar';
-import Swal from "sweetalert2";
-import { mostrarAlerta } from "./Utils/alertUtils";
-import { migrarDocumentosViejos } from "../services/lugaresService";
-import {ModalRecomendacionesIA} from "../Components/Pages/Seccions/ModalRecomendacionesIa";
+import { ModalRecomendacionesIA } from "../Components/Pages/Seccions/ModalRecomendacionesIa";
 
 interface HeaderProps {
-    sections: ReadonlyArray<{ title: string; url: string; }>;
+    sections: ReadonlyArray<{ title: string; url: string }>;
     availablePlaces: any[];
 }
 
-const SUGERENCIAS_IA = [
+interface SugerenciaFiltro {
+    value: string;
+    tipo: 'tag' | 'lugar';
+    id?: string;
+    data?: any;
+}
+
+const SUGERENCIAS_IA: { value: string; tipo: 'tag' }[] = [
     { value: 'Clima Frío', tipo: 'tag' },
     { value: 'Clima Cálido', tipo: 'tag' },
     { value: 'Aventura', tipo: 'tag' },
@@ -55,115 +57,87 @@ const SUGERENCIAS_IA = [
     { value: 'Viaje en Pareja', tipo: 'tag' },
 ];
 
-function Headers({ sections, availablePlaces }: HeaderProps) {
+const Headers: React.FC<HeaderProps> = ({ sections, availablePlaces }) => {
     const navigate = useNavigate();
-    const [options, setOptions] = useState<any[]>([]);
-    const [searchText, setSearchText] = useState("");
     const { usuario, rol } = useAuth();
 
-    // 📱 Estado para abrir/cerrar el menú desplegable en móviles
+    const [options, setOptions] = useState<SugerenciaFiltro[]>([]);
+    const [searchText, setSearchText] = useState<string>("");
     const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-
-    // 🖼️ Estado para la foto de perfil activa
     const [fotoPerfilUrl, setFotoPerfilUrl] = useState<string>(DEFAULT_AVATAR);
-
-    // ✨ Estado para controlar el Modal de IA
     const [modalIaAbierto, setModalIaAbierto] = useState<boolean>(false);
+    const [perfilCompleto, setPerfilCompleto] = useState<boolean>(false);
 
-    const ejecutarMigración = async () => {
-        handleMenuClose();
-        setMobileMenuOpen(false);
-
-        const result = await Swal.fire({
-            title: '¿Migrar documentos viejos?',
-            text: 'Esta acción buscará destinos creados anteriormente que no tengan el campo "confirmado" y les asignará "true" automáticamente para acelerar Firestore.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, ejecutar migración',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#1976d2',
-            cancelButtonColor: '#dc2626'
-        });
-
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Migrando datos...',
-                text: 'Por favor espera un momento.',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading(Swal.getConfirmButton());
-                }
-            });
-
-            try {
-                const actualizados = await migrarDocumentosViejos();
-                Swal.close();
-                mostrarAlerta({
-                    title: '¡Migración Completada!',
-                    text: `Se actualizaron exitosamente ${actualizados} registros viejos en la base de datos.`,
-                    icon: 'success'
-                });
-            } catch (error) {
-                Swal.close();
-                mostrarAlerta({
-                    title: 'Error de migración',
-                    text: 'Ocurrió un problema al intentar actualizar la base de datos.',
-                    icon: 'error'
-                });
-            }
-        }
-    };
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const open = Boolean(anchorEl);
 
     useEffect(() => {
-        const cargarFotoHeader = async () => {
+        let isMounted = true;
+
+        const cargarDatosUsuarioHeader = async () => {
             if (usuario?.uid) {
                 try {
-                    const fotoData = await obtenerFotoPerfilUsuario(usuario.uid);
-                    if (fotoData && fotoData.base64) {
-                        const src = fotoData.base64.startsWith("data:")
-                            ? fotoData.base64
-                            : `data:image/png;base64,${fotoData.base64}`;
-                        setFotoPerfilUrl(src);
-                    } else {
-                        setFotoPerfilUrl(DEFAULT_AVATAR);
+                    const [fotoData, perfilData] = await Promise.all([
+                        obtenerFotoPerfilUsuario(usuario.uid),
+                        obtenerPerfilUsuario(usuario.uid)
+                    ]);
+
+                    if (isMounted) {
+                        if (fotoData && fotoData.base64) {
+                            const src = fotoData.base64.startsWith("data:")
+                                ? fotoData.base64
+                                : `data:image/png;base64,${fotoData.base64}`;
+                            setFotoPerfilUrl(src);
+                        } else {
+                            setFotoPerfilUrl(DEFAULT_AVATAR);
+                        }
+
+                        const estaCompleto = Boolean(perfilData && perfilData.perfilIncompleto === false);
+                        setPerfilCompleto(estaCompleto);
                     }
-                } catch (error) {
-                    console.error("Error al obtener la foto de perfil en el Header:", error);
-                    setFotoPerfilUrl(DEFAULT_AVATAR);
+                } catch {
+                    if (isMounted) {
+                        setFotoPerfilUrl(DEFAULT_AVATAR);
+                        setPerfilCompleto(false);
+                    }
                 }
             } else {
-                setFotoPerfilUrl(DEFAULT_AVATAR);
+                if (isMounted) {
+                    setFotoPerfilUrl(DEFAULT_AVATAR);
+                    setPerfilCompleto(false);
+                }
             }
         };
 
-        cargarFotoHeader();
-        window.addEventListener('perfilActualizado', cargarFotoHeader);
+        cargarDatosUsuarioHeader();
+        window.addEventListener('perfilActualizado', cargarDatosUsuarioHeader);
 
         return () => {
-            window.removeEventListener('perfilActualizado', cargarFotoHeader);
+            isMounted = false;
+            window.removeEventListener('perfilActualizado', cargarDatosUsuarioHeader);
         };
     }, [usuario]);
 
     const onSearch = (value: string) => {
         setSearchText(value);
 
-        if (!value) {
+        if (!value.trim()) {
             setOptions([]);
             return;
         }
 
-        const queryLower = value.toLowerCase();
+        const queryLower = value.toLowerCase().trim();
 
-        const tagsIA = (SUGERENCIAS_IA || [])
-            .filter(item => item?.value && item.value.toLowerCase().includes(queryLower))
-            .map(item => ({
+        const tagsIA: SugerenciaFiltro[] = (SUGERENCIAS_IA || [])
+            .filter((item) => item?.value && item.value.toLowerCase().includes(queryLower))
+            .map((item) => ({
                 value: item.value,
                 tipo: 'tag'
             }));
 
-        const lugaresBD = (availablePlaces || [])
-            .filter(lugar => lugar?.nombre && lugar.nombre.toLowerCase().includes(queryLower))
-            .map(lugar => ({
+        const lugaresBD: SugerenciaFiltro[] = (availablePlaces || [])
+            .filter((lugar) => lugar?.nombre && lugar.nombre.toLowerCase().includes(queryLower))
+            .map((lugar) => ({
                 value: lugar.nombre,
                 id: lugar.id,
                 tipo: 'lugar',
@@ -172,9 +146,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
 
         setOptions([...tagsIA, ...lugaresBD]);
     };
-
-    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-    const open = Boolean(anchorEl);
 
     const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
         if (usuario) {
@@ -193,23 +164,17 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
             handleMenuClose();
             setMobileMenuOpen(false);
             await signOut(auth);
-            console.log("🔒 Sesión destruida correctamente.");
             navigate("/login");
-        } catch (error) {
-            console.error("❌ Error al cerrar sesión:", error);
+        } catch {
+            navigate("/login");
         }
     };
 
     const handleSelect = (value: string, option: any) => {
         if (option.tipo === 'lugar') {
             const lugarId = option.id || option.data?.id;
-
-            if (!lugarId) {
-                console.error("El lugar seleccionado no contiene un ID válido:", option);
-                return;
-            }
-
-            navigate(`/pagina2/${lugarId}`);
+            if (!lugarId) return;
+            navigate(`/destino/${lugarId}`);
         } else {
             navigate(`/Destinos?filter=${encodeURIComponent(value)}`);
         }
@@ -227,41 +192,46 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
     return (
         <nav className="navbar navbar-expand-lg fixed-top custom-header">
             <div className="container-fluid d-flex align-items-center justify-content-between px-3 px-md-4">
-
-                {/* LADO IZQUIERDO: LOGO Y SECCIONES ESCRITORIO */}
                 <div className="d-flex align-items-center">
-                    <a className="navbar-brand logo-text me-3 me-md-4" href="/">
-                        COL<span className="text-primary">EXPLORE</span>
+                    <a className="navbar-brand d-flex align-items-center logo-text me-3 me-md-4" href="/" style={{ textDecoration: 'none' }}>
+                        <img
+                            src={logoApp}
+                            alt="TurisCol"
+                            style={{
+                                height: '36px',
+                                width: 'auto',
+                                marginRight: '10px',
+                                objectFit: 'contain'
+                            }}
+                        />
+                        <span><span className="text-primary">TURIS</span>COL</span>
                     </a>
 
-                    {/* Secciones en Escritorio (lg) */}
                     <div className="collapse navbar-collapse d-none d-lg-block">
                         <ul className="navbar-nav">
                             {sections.map((section) => (
                                 <li className="nav-item" key={section.title}>
-                                    <a className="nav-link nav-custom-link" href={section.url}>{section.title}</a>
+                                    <a className="nav-link nav-custom-link" href={section.url}>
+                                        {section.title}
+                                    </a>
                                 </li>
                             ))}
                         </ul>
                     </div>
                 </div>
 
-                {/* INDICADOR CONEXIÓN */}
                 <div className="d-none d-sm-block">
                     <EstadoConexion />
                 </div>
 
-                {/* LADO DERECHO: BUSCADOR + BOTÓN IA ESCRITORIO + AVATAR + HAMBURGUESA MÓVIL */}
                 <div className="d-flex align-items-center gap-2 gap-md-3">
-
-                    {/* 🤖 BOTÓN RECOMENDACIÓN IA (Alineado estrictamente con Bootstrap 'lg') */}
-                    {usuario && (
+                    {usuario && perfilCompleto && (
                         <Button
                             variant="contained"
                             size="small"
                             onClick={() => setModalIaAbierto(true)}
                             startIcon={<AutoAwesomeIcon />}
-                            className="d-none d-lg-inline-flex" // 👈 Sincronizado exactamente a 992px con el menú hamburguesa
+                            className="d-none d-lg-inline-flex"
                             sx={{
                                 background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
                                 color: '#ffffff',
@@ -281,7 +251,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </Button>
                     )}
 
-                    {/* Buscador de Ant Design (responsivo) */}
                     <div className="search-wrapper">
                         <AutoComplete
                             options={options}
@@ -305,7 +274,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </AutoComplete>
                     </div>
 
-                    {/* 👤 Avatar del usuario */}
                     <div
                         onClick={handleAvatarClick}
                         style={{ cursor: 'pointer' }}
@@ -326,19 +294,17 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         </div>
                     </div>
 
-                    {/* 📱 BOTÓN HAMBURGUESA */}
                     <IconButton
                         color="inherit"
                         onClick={() => setMobileMenuOpen(true)}
                         className="d-lg-none text-dark ms-1"
+                        aria-label="Abrir menú de navegación"
                     >
                         <MenuIcon />
                     </IconButton>
-
                 </div>
             </div>
 
-            {/* MENU AVATAR (ESCRITORIO Y MÓVIL) */}
             <Menu
                 anchorEl={anchorEl}
                 id="account-menu"
@@ -355,8 +321,15 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                         mt: 1.5,
                         '& .MuiAvatar-root': { width: 32, height: 32, ml: -0.5, mr: 1 },
                         '&::before': {
-                            content: '""', display: 'block', position: 'absolute', top: 0, right: 14,
-                            width: 10, height: 10, bgcolor: 'background.paper', transform: 'translateY(-50%) rotate(45deg)',
+                            content: '""',
+                            display: 'block',
+                            position: 'absolute',
+                            top: 0,
+                            right: 14,
+                            width: 10,
+                            height: 10,
+                            bgcolor: 'background.paper',
+                            transform: 'translateY(-50%) rotate(45deg)',
                             zIndex: 0,
                         },
                     },
@@ -369,24 +342,27 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                     Mi Perfil
                 </MenuItem>
 
-                {rol === 'administrador' && [
-                    <MenuItem key="pendientes" component={RouterLink} to="/admin/pendientes">
-                        <ListItemIcon><HourglassTopIcon fontSize="small" color="warning" /></ListItemIcon>
-                        Destinos Pendientes
-                    </MenuItem>,
-                    <MenuItem key="reportes" component={RouterLink} to="/admin/reportes">
-                        <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
-                        Reportes
-                    </MenuItem>,
-                    <MenuItem key="usuarios" component={RouterLink} to="/admin/usuarios">
-                        <ListItemIcon><ManageAccountsIcon fontSize="small" color="success" /></ListItemIcon>
-                        Gestión de Usuarios
-                    </MenuItem>,
-                    <MenuItem key="scrapper" component={RouterLink} to="/admin/scrapper">
-                        <ListItemIcon><BuildIcon fontSize="small" color="primary" /></ListItemIcon>
-                        Scrapper / Migrador
-                    </MenuItem>
-                ]}
+                {rol === 'administrador' && (
+                    <React.Fragment>
+                        <MenuItem component={RouterLink} to="/admin/pendientes">
+                            <ListItemIcon><HourglassTopIcon fontSize="small" color="warning" /></ListItemIcon>
+                            Destinos Pendientes
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/admin/reportes">
+                            <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
+                            Reportes
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/admin/usuarios">
+                            <ListItemIcon><ManageAccountsIcon fontSize="small" color="success" /></ListItemIcon>
+                            Gestión de Usuarios
+                        </MenuItem>
+                        <MenuItem component={RouterLink} to="/admin/scrapper">
+                            <ListItemIcon><BuildIcon fontSize="small" color="primary" /></ListItemIcon>
+                            Scrapper / Migrador
+                        </MenuItem>
+                    </React.Fragment>
+                )}
+
                 <Divider />
 
                 <MenuItem onClick={handleCerrarSesion} sx={{ color: 'error.main' }}>
@@ -397,7 +373,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                 </MenuItem>
             </Menu>
 
-            {/* 📱 PANEL LATERAL DESPLEGABLE (DRAWER) PARA MÓVILES */}
             <Drawer
                 anchor="right"
                 open={mobileMenuOpen}
@@ -405,16 +380,15 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
             >
                 <Box sx={{ width: 280, p: 2 }}>
                     <Box className="d-flex justify-content-between align-items-center mb-3">
-                        <span className="fw-bold text-primary fs-5">COLEXPLORE</span>
-                        <IconButton onClick={() => setMobileMenuOpen(false)}>
+                        <span className="fw-bold text-primary fs-5">TurisCol</span>
+                        <IconButton onClick={() => setMobileMenuOpen(false)} aria-label="Cerrar navegación lateral">
                             <CloseIcon />
                         </IconButton>
                     </Box>
                     <Divider />
 
                     <List>
-                        {/* 🤖 ÚNICO PUNTO DE ACCESO IA EN MÓVILES */}
-                        {usuario && (
+                        {usuario && perfilCompleto && (
                             <ListItem disablePadding sx={{ mb: 1 }}>
                                 <ListItemButton
                                     onClick={() => {
@@ -428,14 +402,13 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                 >
                                     <ListItemIcon><AutoAwesomeIcon color="primary" /></ListItemIcon>
                                     <ListItemText
-                                        primary="✨ Recomendados para Ti"
+                                        primary="Recomendados para Ti"
                                         primaryTypographyProps={{ fontWeight: 'bold', color: '#0284c7' }}
                                     />
                                 </ListItemButton>
                             </ListItem>
                         )}
 
-                        {/* Secciones que venían en la prop 'sections' */}
                         {sections.map((sec) => (
                             <ListItem key={sec.title} disablePadding>
                                 <ListItemButton onClick={() => irANavegacion(sec.url)}>
@@ -444,9 +417,8 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                             </ListItem>
                         ))}
 
-                        {/* Opciones de Administrador en el panel móvil */}
                         {rol === 'administrador' && (
-                            <>
+                            <React.Fragment>
                                 <Divider sx={{ my: 1 }} />
                                 <Box className="px-3 py-1">
                                     <span className="badge bg-danger">ADMINISTRADOR</span>
@@ -475,13 +447,13 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                         <ListItemText primary="Scrapper" />
                                     </ListItemButton>
                                 </ListItem>
-                            </>
+                            </React.Fragment>
                         )}
 
                         <Divider sx={{ my: 1 }} />
 
                         {usuario ? (
-                            <>
+                            <React.Fragment>
                                 <ListItem disablePadding>
                                     <ListItemButton onClick={() => irANavegacion("/profile")}>
                                         <ListItemIcon><PersonIcon color="action" /></ListItemIcon>
@@ -494,7 +466,7 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                                         <ListItemText primary="Cerrar Sesión" sx={{ color: 'error.main' }} />
                                     </ListItemButton>
                                 </ListItem>
-                            </>
+                            </React.Fragment>
                         ) : (
                             <ListItem disablePadding>
                                 <ListItemButton onClick={() => irANavegacion("/login")}>
@@ -506,7 +478,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
                 </Box>
             </Drawer>
 
-            {/* ✨ MODAL INDEPENDIENTE DE IA */}
             <ModalRecomendacionesIA
                 isOpen={modalIaAbierto}
                 onClose={() => setModalIaAbierto(false)}
@@ -514,6 +485,6 @@ function Headers({ sections, availablePlaces }: HeaderProps) {
             />
         </nav>
     );
-}
+};
 
 export default Headers;

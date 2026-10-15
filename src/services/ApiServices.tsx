@@ -1,7 +1,21 @@
 /**
- * Servicio para consumir APIs externas y públicas
+ * Servicio de integración para el consumo de APIs externas públicas y normalización territorial.
  */
 
+// Función auxiliar para detectar acentos ortográficos
+const tieneTilde = (texto: string): boolean => {
+    return /[áéíóúÁÉÍÓÚ]/i.test(texto);
+};
+
+// Función auxiliar para estandarizar cadenas (remueve signos diacríticos y capitalización)
+const normalizarClave = (texto: string): string => {
+    return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+/**
+ * Obtiene, filtra y normaliza la lista de municipios desde el registro público de API Colombia.
+ * @returns {Promise<{label: string, value: string}[]>} Lista deduplicada y ordenada alfabéticamente.
+ */
 export const obtenerCiudadesColombia = async (): Promise<{ label: string; value: string }[]> => {
     try {
         const response = await fetch("https://api-colombia.com/api/v1/City?sortBy=name&sortDirection=asc", {
@@ -12,44 +26,38 @@ export const obtenerCiudadesColombia = async (): Promise<{ label: string; value:
         });
 
         if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
+            throw new Error(`Error de comunicación con el servicio geográfico. Código HTTP: ${response.status}`);
         }
 
         const data = await response.json();
-
-        // 🧹 Mapa para deduplicar usando la versión sin tildes como clave interna
         const mapaCiudades = new Map<string, string>();
 
-        const tieneTilde = (texto: string) => /[áéíóúÁÉÍÓÚ]/i.test(texto);
-        const normalizarClave = (texto: string) =>
-            texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        // Proceso de deduplicación preservando la variante con mayor riqueza ortográfica
+        data.forEach((ciudadItem: any) => {
+            if (!ciudadItem.name) return;
 
-        data.forEach((c: any) => {
-            if (!c.name) return;
-            const nombreLimpio = c.name.trim();
-            const claveNormal = normalizarClave(nombreLimpio);
+            const nombreOriginal = ciudadItem.name.trim();
+            const claveCanonico = normalizarClave(nombreOriginal);
 
-            if (!mapaCiudades.has(claveNormal)) {
-                mapaCiudades.set(claveNormal, nombreLimpio);
+            if (!mapaCiudades.has(claveCanonico)) {
+                mapaCiudades.set(claveCanonico, nombreOriginal);
             } else {
-                // Si la existente no tenía tilde y esta nueva sí la tiene, la reemplazamos
-                const ciudadExistente = mapaCiudades.get(claveNormal)!;
-                if (!tieneTilde(ciudadExistente) && tieneTilde(nombreLimpio)) {
-                    mapaCiudades.set(claveNormal, nombreLimpio);
+                const ciudadRegistrada = mapaCiudades.get(claveCanonico)!;
+                if (!tieneTilde(ciudadRegistrada) && tieneTilde(nombreOriginal)) {
+                    mapaCiudades.set(claveCanonico, nombreOriginal);
                 }
             }
         });
 
-        // Retorna la lista única ordenada respetando tildes y caracteres en español
+        // Ordenamiento lingüístico y mapeo al estándar del selector (label/value)
         return Array.from(mapaCiudades.values())
             .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
-            .map((nombre) => ({
-                label: nombre,
-                value: nombre
+            .map((nombreFinal) => ({
+                label: nombreFinal,
+                value: nombreFinal
             }));
 
     } catch (error) {
-        console.error("Error al obtener municipios de Colombia:", error);
         return [];
     }
 };

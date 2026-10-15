@@ -3,6 +3,7 @@ import { AIPayload } from '../../Components/models/IaPayload';
 export function buildAIPromptRTCF(payload: AIPayload): string {
     const { userContext, weightingCriteria, availablePlaces, maxResults } = payload;
     const { preferences } = userContext;
+
     const avoidedEnvs = (userContext.avoidedEnvironments && userContext.avoidedEnvironments.length > 0)
         ? userContext.avoidedEnvironments.join(', ')
         : 'Ninguno';
@@ -53,22 +54,29 @@ export function buildAIPromptRTCF(payload: AIPayload): string {
     </CONTEXT>
     
     <CONSTRAINTS>
-   1. INTEGRIDAD DE DATOS Y RANGOS:
-   - El atributo "placeId" en la respuesta debe coincidir EXACTAMENTE con el ID del catálogo. Prohibido modificar, traducir o adivinar IDs.
-   - El atributo "score" debe ser estrictamente un número flotante en el rango [0.0, 1.0]. Incluso con el bono de impulso, jamás debe superar 1.0.
-   
+    1. INTEGRIDAD DE DATOS Y RANGOS:
+    - El atributo "placeId" en la respuesta debe coincidir EXACTAMENTE con el ID del catálogo. Prohibido modificar, traducir o adivinar IDs.
+    - El atributo "score" debe ser estrictamente un número flotante en el rango [0.0, 1.0]. Incluso con el bono de impulso, jamás debe superar 1.0.
+    
     2. REGLAS ESTRICTAS DE NEGOCIO:
-   - Si un lugar pertenece a los "Entornos a EVITAR", su score debe ser 0.0 o ser omitido completamente del resultado.
-   - Si no hay suficientes coincidencias para alcanzar ${maxResults} resultados, devuelve únicamente los lugares que superen un score de 0.4. No rerellenes con datos irrelevantes.
+    - Si un lugar pertenece a los "Entornos a EVITAR", su score debe ser 0.0 o ser omitido completamente del resultado.
+    - Si no hay suficientes coincidencias para alcanzar ${maxResults} resultados, devuelve únicamente los lugares que superen un score de 0.4. No rerellenes con datos irrelevantes o inventados.
     
     3. SINTAXIS Y FORMATO PARA PARSEO EN FRONTEND:
-    - Devuelve ÚNICAMENTE la estructura JSON estricta. Queda ABSOLUTAMENTE PROHIBIDO incluir bloques de código markdown (\\json) o comillas al inicio/final del texto. La respuesta debe iniciar con '{' y terminar con '}'.
+    - Devuelve ÚNICAMENTE la estructura JSON estricta. Queda ABSOLUTAMENTE PROHIBIDO incluir bloques de código markdown (\`\`\`json) o comillas al inicio/final del texto. La respuesta debe iniciar con '{' y terminar con '}'.
     - No generes respuestas conversacionales, saludos, ni textos explicativos adicionales fuera de la clave "reason".
-   - El array "recommendations" no debe contener "placeId" duplicados y debe estar ordenado de mayor a menor según el "score".
-   
-    4. REDACCIÓN Y CONCISIÓN:
-   - El atributo "reason" debe estar redactado en español neutro de Colombia.
-   - La razón debe tener un máximo estricto de 10 palabras y ser altamente específica al perfil del usuario (ejemplo: "Ideal para tu presupuesto y gusto por clima cálido") evita dar textos demasiado largos.
+    - El array "recommendations" no debe contener "placeId" duplicados y debe estar ordenado de mayor a menor según el "score".
+    
+    4. REDACCIÓN Y CONCISIÓN (Para el atributo "reason"):
+    - El atributo "reason" debe estar redactado en español neutro de Colombia.
+    - Longitud requerida: Entre 12 y 22 palabras. No redactes respuestas extremadamente cortas ni párrafos largos.
+    - Estructura obligatoria: Conecta un atractivo real del destino (paisaje, actividad, clima) con la necesidad específica del usuario (su compañía, presupuesto o ritmo).
+    - PROHIBIDO el uso de frases genéricas, obvias o redundantes como: "Porque te gusta...", "Ideal para ti...", "Recomendado por tu clima...".
+    - EJEMPLOS DE REDACCIÓN:
+      * CORRECTO: "Caminatas ecológicas entre cascadas de clima fresco, perfecto para recorrer a ritmo pausado con amigos dentro de tu presupuesto."
+      * CORRECTO: "Ambiente colonial tranquilo con excelente gastronomía típica, ideal para un plan en pareja con acceso cómodo en vehículo."
+      * INCORRECTO: "Porque te gusta el frío y vas con tu pareja." (Demasiado corto y genérico).
+      * INCORRECTO: "Lugar muy económico y recomendado para ti porque se ajusta a lo que pediste." (Texto vacío, no describe el lugar).
     </CONSTRAINTS>
     
     <FORMAT>

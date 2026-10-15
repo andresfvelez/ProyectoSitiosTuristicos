@@ -1,114 +1,142 @@
-import {MapContainer, TileLayer, Marker, Popup, useMap} from 'react-leaflet';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import {useEffect, useMemo, useRef, useState} from 'react';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
-import 'leaflet-geosearch/dist/geosearch.css'; // ¡No olvides los estilos del buscador!
-/* Icono por defecto (bien tipado, sin hacks) */
+import 'leaflet-geosearch/dist/geosearch.css';
+
+// Configuración canónica del marcador de Leaflet para entornos empaquetados
 const defaultIcon = new L.Icon({
-    iconRetinaUrl:
-        'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl:
-        'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl:
-        'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
     shadowSize: [41, 41],
 });
 
-type MapaUbicacionProps = {
+interface MapaUbicacionProps {
     lat: number;
     lng: number;
     nombre: string;
     onUpdate?: (lat: number, lng: number, nombre: string) => void;
-};
+}
 
-// Función para obtener el nombre del lugar basado en coordenadas
-const reverseGeocode = async (lat: number, lng: number) => {
+// Geocodificación inversa mediante el servicio público de Nominatim OpenStreetMap
+const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
         const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
         );
+        if (!response.ok) throw new Error("Error en respuesta de geocodificación");
         const data = await response.json();
-        // Intentamos obtener el nombre más relevante (pueblo, ciudad o barrio)
-        return data.display_name.split(',')[0] || "Ubicación seleccionada";
-    } catch (error) {
-        console.error("Error en geocodificación inversa:", error);
+        return data.display_name?.split(',')[0] || "Ubicación seleccionada";
+    } catch {
         return `Ubicación: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
 };
 
-// Componente interno para el buscador
-const SearchField = ({ onLocationFound }: { onLocationFound: (lat: number, lng: number, label: string) => void }) => {
+// Componente externo para reajustar la vista ante cambios de coordenadas
+const RecenterMap: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (lat && lng) {
+            map.setView([lat, lng], map.getZoom());
+        }
+    }, [lat, lng, map]);
+    return null;
+};
+
+// Controlador de invalidación de tamaño para prevenir baldosas grises en pantallas móviles
+const ResponsiveMapHandler: React.FC = () => {
+    const map = useMap();
+    useEffect(() => {
+        map.invalidateSize();
+        const handleResize = () => map.invalidateSize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [map]);
+    return null;
+};
+
+// Controlador integrado de búsqueda geográfica
+const SearchField: React.FC<{ onLocationFound: (lat: number, lng: number, label: string) => void }> = ({
+                                                                                                           onLocationFound
+                                                                                                       }) => {
     const map = useMap();
 
     useEffect(() => {
         const provider = new OpenStreetMapProvider();
-        // @ts-ignore
-        const searchControl = new GeoSearchControl({
-            provider: provider,
+        const searchControl = new (GeoSearchControl as any)({
+            provider,
             style: 'bar',
-            showMarker: false, // Desactivamos el marcador automático del buscador para usar el nuestro
+            showMarker: false,
             retainZoomLevel: false,
             animateZoom: true,
             autoClose: true,
-            searchLabel: 'Busca un lugar...',
+            searchLabel: 'Busca una dirección o municipio...',
             keepResult: true
         });
 
         map.addControl(searchControl);
 
-        // Escuchar cuando el buscador encuentra algo
-        map.on('geosearch/showlocation', (result: any) => {
-            onLocationFound(result.location.y, result.location.x, result.location.label.split(',')[0]);
-        });
+        const handleShowLocation = (result: any) => {
+            const labelLimpio = result.location.label?.split(',')[0] || "Ubicación encontrada";
+            onLocationFound(result.location.y, result.location.x, labelLimpio);
+        };
 
-        return () => { map.removeControl(searchControl); };
+        map.on('geosearch/showlocation', handleShowLocation);
+
+        return () => {
+            map.removeControl(searchControl);
+            map.off('geosearch/showlocation', handleShowLocation);
+        };
     }, [map, onLocationFound]);
 
     return null;
 };
 
-const MapaUbicacion = ({ lat, lng, nombre, onUpdate }: MapaUbicacionProps) => {
-    const [mostrarInicial, setMostrarInicial] = useState(true);
-    const [posicion, setPosicion] = useState({ lat, lng });
-    const [nombreActual, setNombreActual] = useState(nombre);
-    const markerRef = useRef(null);
+const MapaUbicacion: React.FC<MapaUbicacionProps> = ({ lat, lng, nombre, onUpdate }) => {
+    const [posicion, setPosicion] = useState<{ lat: number; lng: number }>({ lat, lng });
+    const [nombreActual, setNombreActual] = useState<string>(nombre);
+    const markerRef = useRef<L.Marker | null>(null);
 
-    // Eventos para el arrastre
+    // Determina si el mapa opera como selector interactivo (edición/creación) o como visor turístico
+    const esModoEdicion = Boolean(onUpdate);
+
+    // Sincronización del estado interno cuando cambian los props desde el contenedor
+    useEffect(() => {
+        setPosicion({ lat, lng });
+    }, [lat, lng]);
+
+    useEffect(() => {
+        setNombreActual(nombre);
+    }, [nombre]);
+
+    // Gestión centralizada de cambios de ubicación
+    const handleNewLocation = useCallback(async (newLat: number, newLng: number, newName?: string) => {
+        setPosicion({ lat: newLat, lng: newLng });
+
+        const nombreFinal = newName || await reverseGeocode(newLat, newLng);
+        setNombreActual(nombreFinal);
+
+        if (onUpdate) {
+            onUpdate(newLat, newLng, nombreFinal);
+        }
+    }, [onUpdate]);
+
+    // Gestor de eventos de arrastre para el marcador
     const eventHandlers = useMemo(() => ({
         async dragend() {
             const marker = markerRef.current;
-            if (marker != null) {
-                // @ts-ignore
+            if (marker) {
                 const { lat: mLat, lng: mLng } = marker.getLatLng();
                 await handleNewLocation(mLat, mLng);
             }
         },
-    }), [posicion]);
-    const RecenterMap = ({ lat, lng }: { lat: number, lng: number }) => {
-        const map = useMap();
-        useEffect(() => {
-            map.setView([lat, lng]);
-        }, [lat, lng, map]);
-        return null;
-    };
+    }), [handleNewLocation]);
 
-    // Función para manejar el cambio de ubicación (arrastre o buscador)
-    const handleNewLocation = async (newLat: number, newLng: number, newName?: string) => {
-        setPosicion({ lat: newLat, lng: newLng });
-
-        // Si no nos pasan nombre (cuando arrastramos), lo buscamos
-        const finalName = newName || await reverseGeocode(newLat, newLng);
-        setNombreActual(finalName);
-
-        // Si pasamos una función de callback, notificamos al padre (tu formulario)
-        if (onUpdate) {
-            onUpdate(newLat, newLng, finalName);
-        }
-    };
     return (
         <div
             style={{
@@ -116,38 +144,41 @@ const MapaUbicacion = ({ lat, lng, nombre, onUpdate }: MapaUbicacionProps) => {
                 maxWidth: '900px',
                 margin: '0 auto',
                 height: '420px',
-                borderRadius: '14px',
+                borderRadius: '16px',
                 overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                border: '1px solid #e2e8f0'
             }}
         >
             <MapContainer
-                center={[lat, lng]}
+                center={[posicion.lat || 4.5709, posicion.lng || -74.2973]}
                 zoom={13}
-                scrollWheelZoom={true}
+                scrollWheelZoom={false}
                 style={{
                     width: '100%',
                     height: '100%',
                 }}
             >
                 <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+
+                <ResponsiveMapHandler />
                 <RecenterMap lat={posicion.lat} lng={posicion.lng} />
-                {( nombre=="") &&
-                    mostrarInicial && (
-                        <>
+
+                {esModoEdicion ? (
+                    <>
                         <Marker
                             draggable={true}
                             eventHandlers={eventHandlers}
-                            position={posicion}
+                            position={[posicion.lat, posicion.lng]}
                             icon={defaultIcon}
                             ref={markerRef}
                         >
                             <Popup>
                                 <div style={{ textAlign: 'center' }}>
-                                    {nombreActual && nombreActual!== "" && (
+                                    {nombreActual && (
                                         <>
                                             <strong>{nombreActual}</strong>
                                             <br />
@@ -159,21 +190,15 @@ const MapaUbicacion = ({ lat, lng, nombre, onUpdate }: MapaUbicacionProps) => {
                             </Popup>
                         </Marker>
 
-                    <SearchField onLocationFound={handleNewLocation} />
-                        </>
-                    )}
-
-                { nombre!=="" &&
-                    <Marker position={[lat, lng]} icon={defaultIcon}>
+                        <SearchField onLocationFound={handleNewLocation} />
+                    </>
+                ) : (
+                    <Marker position={[posicion.lat, posicion.lng]} icon={defaultIcon}>
                         <Popup>
-                            <strong>{nombre}</strong>
+                            <strong>{nombreActual || "Destino Turístico"}</strong>
                         </Popup>
                     </Marker>
-                }
-
-
-
-
+                )}
             </MapContainer>
         </div>
     );

@@ -1,90 +1,85 @@
 import { getAIRecommendations, obtenerContextoParaIA, obtenerContextoUsuarioParaIA } from "./Iaservice";
-import {obtenerImagenesPorDestino} from "../lugaresService";
+import { obtenerImagenesPorDestino } from "../lugaresService";
 
 /**
- * Ejecuta el pipeline completo de recomendación inteligente.
- * @param uid Identificador único del usuario autenticado en Firebase.
+ * Obtiene las coordenadas geográficas del dispositivo mediante la API del navegador.
  */
-export async function ejecutarConsultaIA(uid: string,cantidad:number) {
-    // 📍 Helper para obtener la geolocalización actual
-    const obtenerUbicacion = (): Promise<{ lat: number, lng: number } | null> => {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) return resolve(null);
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => resolve(null),
-                { timeout: 5000 }
-            );
-        });
-    };
+const obtenerUbicacionActual = (): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+        if (typeof window === 'undefined' || !navigator.geolocation) {
+            return resolve(null);
+        }
 
-    // 🛡️ 1. Validación de Entrada
-    if (!uid) {
-        console.warn("⚠️ No se proporcionó un UID de usuario válido.");
-        return [];
-    }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => resolve(null),
+            { timeout: 5000, enableHighAccuracy: false }
+        );
+    });
+};
+
+/**
+ * Ejecuta el pipeline completo de recomendación turística inteligente basada en afinidad.
+ *
+ * @param uid Identificador único del usuario autenticado en Firebase.
+ * @param cantidad Número máximo de recomendaciones requeridas.
+ * @returns {Promise<any[]>} Lista de destinos recomendados con puntuación de afinidad e imágenes resueltas.
+ */
+export async function ejecutarConsultaIA(uid: string, cantidad: number = 10): Promise<any[]> {
+    if (!uid) return [];
 
     const userContext = await obtenerContextoUsuarioParaIA(uid);
+    if (!userContext) return [];
 
-    if (!userContext) {
-        console.warn("⚠️ No se pudo obtener el contexto del usuario desde Firestore.");
-        return [];
-    }
+    // Consulta concurrente de coordenadas GPS y catálogo general para reducir latencia
+    const [coords, lugaresCatalogo] = await Promise.all([
+        obtenerUbicacionActual(),
+        obtenerContextoParaIA()
+    ]);
 
-    const coords = await obtenerUbicacion();
-
-    const lugaresCatalogo = await obtenerContextoParaIA();
-
-    console.log(lugaresCatalogo)
     if (!lugaresCatalogo || lugaresCatalogo.length === 0) {
-        console.warn("⚠️ No existen lugares confirmados disponibles en la BD para analizar.");
         return [];
     }
-
 
     try {
-        const respuesta = await getAIRecommendations(lugaresCatalogo, userContext, coords,cantidad);
+        const respuesta = await getAIRecommendations(lugaresCatalogo, userContext, coords, cantidad);
 
-        if (respuesta && respuesta.recommendations && respuesta.recommendations.length > 0) {
-            console.log("✅ IA respondió con éxito.");
-
-            // 5. Cruzar resultados de la IA con los datos del catálogo
-            const lugaresMapeados = respuesta.recommendations
-                .map((rec: any) => {
-                    const infoOriginal = lugaresCatalogo.find(p => p.id === rec.placeId);
-                    if (!infoOriginal) return null;
-
-                    return {
-                        ...infoOriginal,
-                        Score_IA: rec.score,
-                        Motivo: rec.reason
-                    };
-                })
-                .filter((lugar: any): lugar is NonNullable<typeof lugar> => lugar !== null);
-
-            console.log(lugaresMapeados)
-            // 🖼️ 6. CARGAMOS LAS FOTOS REALES SOLO PARA ESTOS 20 LUGARES RECOMENDADOS
-            const lugaresConFotos = await Promise.all(
-                lugaresMapeados.map(async (lugar: any) => {
-                    try {
-                        const fotos = await obtenerImagenesPorDestino(lugar.id);
-                        return {
-                            ...lugar,
-                            imagenes: fotos && fotos.length > 0 ? fotos : undefined
-                        };
-                    } catch (error) {
-                        return lugar;
-                    }
-                })
-            );
-
-            return lugaresConFotos;
-        } else {
-            console.warn("⚠️ La IA no encontró destinos que superen el umbral de afinidad para este perfil.");
+        if (!respuesta?.recommendations || !Array.isArray(respuesta.recommendations) || respuesta.recommendations.length === 0) {
             return [];
         }
-    } catch (error) {
-        console.error("❌ Error en la ejecución de la recomendación IA:", error);
+
+        // Fusión de las inferencias semánticas de la IA con la entidad original del catálogo
+        const lugaresMapeados = respuesta.recommendations
+            .map((rec: any) => {
+                const infoOriginal = lugaresCatalogo.find((p) => p.id === rec.placeId);
+                if (!infoOriginal) return null;
+
+                return {
+                    ...infoOriginal,
+                    Score_IA: rec.score,
+                    Motivo: rec.reason
+                };
+            })
+            .filter((lugar: null): lugar is NonNullable<typeof lugar> => lugar !== null);
+
+        // Carga diferida de recursos fotográficos exclusivamente para los destinos clasificados
+        const lugaresConFotos = await Promise.all(
+            lugaresMapeados.map(async (lugar: { id: string; }) => {
+                try {
+                    if (!lugar.id) return lugar;
+                    const fotos = await obtenerImagenesPorDestino(lugar.id);
+                    return {
+                        ...lugar,
+                        imagenes: fotos && fotos.length > 0 ? fotos : undefined
+                    };
+                } catch {
+                    return lugar;
+                }
+            })
+        );
+
+        return lugaresConFotos;
+    } catch {
         return [];
     }
 }

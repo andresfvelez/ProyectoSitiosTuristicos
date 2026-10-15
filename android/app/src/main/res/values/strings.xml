@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ColExplore</string>
-    <string name="title_activity_main">ColExplore</string>
+    <string name="app_name">TurisCol</string>
+    <string name="title_activity_main">TurisCol</string>
     <string name="package_name">com.colexplore.app</string>
     <string name="custom_url_scheme">com.colexplore.app</string>
     <string name="server_client_id">212388302936-drc74cquj0r94r1iv4ki9nvu4ebkdbr0.apps.googleusercontent.com</string>

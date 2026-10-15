@@ -4,50 +4,116 @@ import { FormularioDestino } from './FormularioDestino';
 import { obtenerLugarPorId } from '../../services/lugaresService';
 import { LugarTuristico } from "../models/LugarTuristico";
 import { useAuth } from '../../auth/AuthProvider';
-import { Box, Typography, Button } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Container, Paper } from '@mui/material';
 
 export default function EditarDestino() {
     const { id } = useParams<{ id: string }>();
-    const [lugar, setLugar] = useState<LugarTuristico | null>(null);
-    const { usuario,rol } = useAuth(); // Asumiendo que 'usuario' trae { uid, rol }
     const navigate = useNavigate();
+    const { usuario, rol } = useAuth();
+
+    const [lugar, setLugar] = useState<LugarTuristico | null>(null);
+    const [cargando, setCargando] = useState<boolean>(true);
 
     useEffect(() => {
+        let isMounted = true;
+
         if (id) {
-            obtenerLugarPorId(id).then((res) => {
-                if (res) setLugar(res);
-            });
+            setCargando(true);
+            obtenerLugarPorId(id)
+                .then((res) => {
+                    if (isMounted) {
+                        setLugar(res);
+                        setCargando(false);
+                    }
+                })
+                .catch(() => {
+                    if (isMounted) {
+                        setLugar(null);
+                        setCargando(false);
+                    }
+                });
+        } else {
+            setCargando(false);
         }
+
+        return () => {
+            isMounted = false;
+        };
     }, [id]);
 
-    if (!lugar) {
-        return <div style={{ padding: '20px', textAlign: 'center' }}>Cargando datos del sitio...</div>;
-    }
-
-    if (!usuario) {
-        return <div style={{ padding: '20px', textAlign: 'center' }}>Debes iniciar sesión para editar.</div>;
-    }
-
-    // 🔒 VALIDACIÓN DE PERMISOS DE EDICIÓN
-    const esCreador = lugar.creadorId === usuario.uid;
-    const esAdmin = rol === 'administrador'; // O el campo de rol que tengas
-
-    if (!esCreador && !esAdmin) {
+    // Estado 1: Recuperación de datos asíncronos
+    if (cargando) {
         return (
-            <Box sx={{ p: 5, textAlign: 'center' }}>
-                <Typography variant="h5" color="error" fontWeight="bold">
-                    Acceso Denegado
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
+                <CircularProgress size={40} sx={{ color: '#0284c7' }} />
+                <Typography variant="body2" color="text.secondary">
+                    Cargando información del destino...
                 </Typography>
-                <Typography variant="body1" sx={{ mt: 1, mb: 3 }}>
-                    No tienes permisos para editar este sitio. Solo el usuario que lo creó o un administrador pueden modificarlo.
-                </Typography>
-                <Button variant="contained" onClick={() => navigate('/')}>
-                    Volver al Inicio
-                </Button>
             </Box>
         );
     }
 
+    // Estado 2: Control de sesión activa
+    if (!usuario) {
+        return (
+            <Container maxWidth="sm" sx={{ py: 8 }}>
+                <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px' }}>
+                    <Typography variant="h6" fontWeight="bold" color="text.primary" sx={{ mb: 1 }}>
+                        Sesión requerida
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Debes iniciar sesión con tu cuenta para acceder al editor de contenido.
+                    </Typography>
+                    <Button variant="contained" onClick={() => navigate('/login')} sx={{ bgcolor: '#0284c7' }}>
+                        Iniciar Sesión
+                    </Button>
+                </Paper>
+            </Container>
+        );
+    }
+
+    // Estado 3: Identificador no encontrado en la base de datos
+    if (!lugar) {
+        return (
+            <Container maxWidth="sm" sx={{ py: 8 }}>
+                <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px' }}>
+                    <Typography variant="h6" fontWeight="bold" color="error" sx={{ mb: 1 }}>
+                        Destino no encontrado
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        El identificador solicitado no existe o fue retirado del sistema.
+                    </Typography>
+                    <Button variant="outlined" onClick={() => navigate('/Destinos')}>
+                        Regresar al Catálogo
+                    </Button>
+                </Paper>
+            </Container>
+        );
+    }
+
+    // Estado 4: Control de permisos de autoría y administración
+    const esCreador = lugar.creadorId === usuario.uid;
+    const esAdmin = rol === 'administrador';
+
+    if (!esCreador && !esAdmin) {
+        return (
+            <Container maxWidth="sm" sx={{ py: 8 }}>
+                <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px' }}>
+                    <Typography variant="h6" fontWeight="bold" color="error" sx={{ mb: 1 }}>
+                        Acceso Restringido
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        No dispones de los privilegios requeridos para modificar este registro. La edición está reservada al autor de la publicación o a un administrador.
+                    </Typography>
+                    <Button variant="contained" onClick={() => navigate('/Destinos')} sx={{ bgcolor: '#0284c7' }}>
+                        Volver a Destinos
+                    </Button>
+                </Paper>
+            </Container>
+        );
+    }
+
+    // Renderizado del formulario en modo edición
     return (
         <FormularioDestino
             modo="editar"

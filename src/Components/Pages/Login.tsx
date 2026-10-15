@@ -1,29 +1,29 @@
-import * as React from 'react';
-import CssBaseline from '@mui/material/CssBaseline';
-import TextField from '@mui/material/TextField';
-import Link from '@mui/material/Link';
-import Grid from '@mui/material/Grid';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Container from '@mui/material/Container';
-import Paper from '@mui/material/Paper';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    CssBaseline,
+    TextField,
+    Link,
+    Grid,
+    Box,
+    Typography,
+    Container,
+    Paper,
+    IconButton,
+    InputAdornment,
+    Divider,
+    Button
+} from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import {
-    signInWithEmailAndPassword,
-    onAuthStateChanged
-} from "firebase/auth";
 import GoogleIcon from '@mui/icons-material/Google';
 import FacebookIcon from '@mui/icons-material/Facebook';
-import { auth } from "../../firebase/firebaseConfig";
-import { useNavigate } from "react-router-dom";
-import { Divider, Button } from "@mui/material";
-import ReCAPTCHA from "react-google-recaptcha";
-import { useEffect, useState, useRef } from "react";
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import ReCAPTCHA from 'react-google-recaptcha';
 import Swal from 'sweetalert2';
+
+import { auth } from '../../firebase/firebaseConfig';
 import { mostrarAlerta } from '../../Layouts/Utils/alertUtils';
 import {
     enviarCorreoRecuperacion,
@@ -31,13 +31,15 @@ import {
     obtenerClaveRecaptcha,
     obtenerPerfilUsuario,
     iniciarSesionGoogleHibrido,
-    iniciarSesionFacebookHibrido, gestionarEstadoUsuario
+    iniciarSesionFacebookHibrido,
+    gestionarEstadoUsuario
 } from '../../services/usuariosService';
 
 const theme = createTheme();
 
 export default function Login() {
     const navigate = useNavigate();
+
     const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [mostrarPassword, setMostrarPassword] = useState<boolean>(false);
@@ -62,24 +64,23 @@ export default function Login() {
                 allowOutsideClick: false,
                 allowEscapeKey: false
             });
-            navigate("/profile");
+            navigate('/profile');
         } else {
-            navigate("/");
+            navigate('/');
         }
     };
 
     const verificarEstadoAcceso = async (uid: string): Promise<boolean> => {
         const estado = await verificarUsuarioBloqueado(uid);
-        if (estado?.estado===("suspendido")) {
+
+        if (estado?.estado === 'suspendido') {
             const fechaFinMs = estado?.bloqueadoHasta || 0;
 
-            //  Si el tiempo de suspensión ya se cumplió, reactiva automáticamente la cuenta
             if (Date.now() >= fechaFinMs) {
                 await gestionarEstadoUsuario(uid, 'activar');
-                return true; // Permite el acceso
+                return true;
             }
 
-            //  Si la suspensión sigue vigente, muestra el mensaje y cierra sesión
             const msRestantes = Math.max(0, fechaFinMs - Date.now());
             const diasRestantes = Math.ceil(msRestantes / (1000 * 60 * 60 * 24));
 
@@ -92,21 +93,22 @@ export default function Login() {
             await auth.signOut();
             mostrarAlerta({
                 title: 'Acceso Restringido',
-                text: `Tu cuenta está suspendida por ${diasRestantes} día(s) (hasta el ${fechaFormateada})
-                 debido al siguiente motivo: ${estado?.motivoSancion || 'Sin especificar'}.`,
+                text: `Tu cuenta está suspendida por ${diasRestantes} día(s) (hasta el ${fechaFormateada}) debido al siguiente motivo: ${estado?.motivoSancion || 'Sin especificar'}.`,
                 icon: 'warning'
             });
             return false;
         }
-        if (estado?.estado===("bloqueado")) {
+
+        if (estado?.estado === 'bloqueado') {
             await auth.signOut();
             mostrarAlerta({
                 title: 'Acceso Restringido',
-                text: 'Tu cuenta ha sido bloqueada debido al siguiente motivo: '+estado?.motivoSancion,
+                text: `Tu cuenta ha sido bloqueada debido al siguiente motivo: ${estado?.motivoSancion || 'Violación de políticas del servicio'}.`,
                 icon: 'error'
             });
             return false;
         }
+
         return true;
     };
 
@@ -124,7 +126,7 @@ export default function Login() {
             cancelButtonColor: '#dc2626',
             inputValidator: (value) => {
                 if (!value) {
-                    return '¡Debes ingresar un correo electrónico!';
+                    return 'Debes ingresar un correo electrónico.';
                 }
                 return null;
             }
@@ -136,13 +138,13 @@ export default function Login() {
             if (resultado.esExterno) {
                 mostrarAlerta({
                     title: 'Inicio con Proveedor Externo',
-                    text: 'Esta cuenta fue registrada mediante Google o Facebook. No requiere contraseña, inicia sesión directamente con el botón de la red social.',
+                    text: 'Esta cuenta fue registrada mediante Google o Facebook. No requiere contraseña, inicia sesión directamente con el botón de la red social correspondiente.',
                     icon: 'info'
                 });
             } else if (resultado.exito) {
                 mostrarAlerta({
-                    title: '¡Correo enviado!',
-                    text: 'Revisa tu bandeja de entrada (y la carpeta de spam) para restablecer tu contraseña.',
+                    title: 'Correo enviado',
+                    text: 'Revisa tu bandeja de entrada o la carpeta de spam para restablecer tu contraseña.',
                     icon: 'success'
                 });
             } else if (resultado.errorKey === 'auth/user-not-found') {
@@ -154,7 +156,7 @@ export default function Login() {
             } else {
                 mostrarAlerta({
                     title: 'Error de envío',
-                    text: 'No se pudo procesar la solicitud. Inténtalo de nuevo más tarde.',
+                    text: 'No se pudo procesar la solicitud en este momento. Inténtalo nuevamente más tarde.',
                     icon: 'error'
                 });
             }
@@ -204,11 +206,14 @@ export default function Login() {
 
             await redirigirSegunEstadoPerfil(uid);
         } catch (error: any) {
-            console.error("❌ Fallo en inicio de sesión:", error.code);
             resetearCaptcha();
             esLoginManualRef.current = false;
 
-            if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            if (
+                error.code === 'auth/invalid-credential' ||
+                error.code === 'auth/user-not-found' ||
+                error.code === 'auth/wrong-password'
+            ) {
                 mostrarAlerta({
                     title: 'Credenciales incorrectas',
                     text: 'El correo electrónico o la contraseña ingresados son incorrectos.',
@@ -223,30 +228,26 @@ export default function Login() {
             } else {
                 mostrarAlerta({
                     title: 'Error de autenticación',
-                    text: 'Ocurrió un problema inesperado. Por favor intenta de nuevo.',
+                    text: 'Ocurrió un problema al iniciar sesión. Por favor intenta de nuevo.',
                     icon: 'error'
                 });
             }
         }
     };
 
-    // 🚀 GOOGLE HÍBRIDO (Mantiene la misma alerta y verificaciones de bloqueo)
     const iniciarSesionConGoogle = async () => {
         esLoginManualRef.current = true;
         try {
-            // Reemplazamos 'signInWithPopup' por nuestra función que decide si es Web o App Móvil
             const usuario = await iniciarSesionGoogleHibrido();
-
             const estaPermitido = await verificarEstadoAcceso(usuario.uid);
             if (!estaPermitido) {
                 esLoginManualRef.current = false;
                 return;
             }
-
             await redirigirSegunEstadoPerfil(usuario.uid);
         } catch (error: any) {
             esLoginManualRef.current = false;
-            if (error.code !== "auth/popup-closed-by-user") {
+            if (error.code !== 'auth/popup-closed-by-user') {
                 mostrarAlerta({
                     title: 'Error con Google',
                     text: 'No se pudo completar el inicio de sesión con Google.',
@@ -256,19 +257,15 @@ export default function Login() {
         }
     };
 
-    // 🚀 FACEBOOK HÍBRIDO (Mantiene la misma alerta y verificaciones de bloqueo)
     const iniciarSesionConFacebook = async () => {
         esLoginManualRef.current = true;
         try {
-            // Reemplazamos 'signInWithPopup' por nuestra función que decide si es Web o App Móvil
             const usuario = await iniciarSesionFacebookHibrido();
-
             const estaPermitido = await verificarEstadoAcceso(usuario.uid);
             if (!estaPermitido) {
                 esLoginManualRef.current = false;
                 return;
             }
-
             await redirigirSegunEstadoPerfil(usuario.uid);
         } catch (error: any) {
             esLoginManualRef.current = false;
@@ -278,7 +275,7 @@ export default function Login() {
                     text: 'Ya existe una cuenta vinculada a este correo con otro método de inicio de sesión.',
                     icon: 'warning'
                 });
-            } else if (error.code !== "auth/popup-closed-by-user") {
+            } else if (error.code !== 'auth/popup-closed-by-user') {
                 mostrarAlerta({
                     title: 'Error con Facebook',
                     text: 'No se pudo completar el inicio de sesión con Facebook.',
@@ -308,15 +305,15 @@ export default function Login() {
                     justifyContent: 'center',
                     backgroundColor: '#f8fafc',
                     py: 6,
-                    px: 2
+                    px: { xs: 1, sm: 2 }
                 }}
             >
-                <Container component="main" maxWidth="xs">
+                <Container component="main" maxWidth="xs" sx={{ px: { xs: 1, sm: 2 } }}>
                     <CssBaseline />
                     <Paper
                         elevation={0}
                         sx={{
-                            p: { xs: 3, sm: 4 },
+                            p: { xs: 2.5, sm: 4 },
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -360,7 +357,7 @@ export default function Login() {
                                             endAdornment: (
                                                 <InputAdornment position="end">
                                                     <IconButton
-                                                        aria-label="toggle password visibility"
+                                                        aria-label="Alternar visibilidad de contraseña"
                                                         onClick={() => setMostrarPassword(!mostrarPassword)}
                                                         edge="end"
                                                     >
@@ -390,7 +387,27 @@ export default function Login() {
 
                                 <Grid item xs={12}>
                                     {recaptchaKey && (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', my: 1 }}>
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                my: 1,
+                                                width: '100%',
+                                                overflow: 'hidden',
+                                                '@media (max-width: 400px)': {
+                                                    '& > div': {
+                                                        transform: 'scale(0.88)',
+                                                        transformOrigin: 'center top'
+                                                    }
+                                                },
+                                                '@media (max-width: 340px)': {
+                                                    '& > div': {
+                                                        transform: 'scale(0.78)',
+                                                        transformOrigin: 'center top'
+                                                    }
+                                                }
+                                            }}
+                                        >
                                             <ReCAPTCHA
                                                 ref={recaptchaRef}
                                                 sitekey={recaptchaKey}
@@ -429,7 +446,7 @@ export default function Login() {
                                 Iniciar Sesión
                             </Button>
 
-                            <Divider sx={{ my: 2, color: '#94a3b8', fontSize: '0.85rem' }}>ó</Divider>
+                            <Divider sx={{ my: 2, color: '#94a3b8', fontSize: '0.85rem' }}>o</Divider>
 
                             <Button
                                 type="button"

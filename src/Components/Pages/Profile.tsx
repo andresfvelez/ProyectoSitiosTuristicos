@@ -36,6 +36,12 @@ import { PREGUNTAS_PERFIL } from "../models/PreguntasPerfil";
 const normalizarTexto = (texto: string) =>
     texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+// ♿ Opción exclusiva para el perfil
+const OPCION_ACCESIBILIDAD_DISCAPACIDAD = {
+  label: '♿ Acceso para Discapacitados / Silla de Ruedas',
+  value: 'accesible_silla_ruedas'
+};
+
 export const Profile: FunctionComponent = () => {
   const navigate = useNavigate();
   const [lugares, setLugares] = useState<LugarTuristico[]>([]);
@@ -50,7 +56,7 @@ export const Profile: FunctionComponent = () => {
   const [fotoDocId, setFotoDocId] = useState<string | null>(null);
   const [fotoBorrada, setFotoBorrada] = useState<boolean>(false);
 
-  // ⚙️ Variable de control de obligatoriedad
+  // Variable de control de obligatoriedad
   const [preferenciasObligatorias] = useState<boolean>(true);
 
   // Estados de Información Personal
@@ -62,7 +68,7 @@ export const Profile: FunctionComponent = () => {
   const [biografia, setBiografia] = useState<string>('');
   const [puntos, setPuntos] = useState<number>(0);
 
-  // 🎯 Estado para Preferencias de la Encuesta
+  // Estado para Preferencias de la Encuesta
   const [preferencias, setPreferencias] = useState<Record<string, any>>({
     clima: '',
     entorno: '',
@@ -277,7 +283,6 @@ export const Profile: FunctionComponent = () => {
               mx: 'auto'
             }}
         >
-
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
             <SelectorImagenes
                 esPerfil={true}
@@ -294,7 +299,7 @@ export const Profile: FunctionComponent = () => {
             />
           </Box>
 
-          {/* 📑 PESTAÑAS ADAPTATIVAS PARA MÓVILES */}
+          {/* PESTAÑAS */}
           <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', mb: 3 }}>
             <Tabs
                 value={tabSubMenu}
@@ -317,7 +322,7 @@ export const Profile: FunctionComponent = () => {
             </Tabs>
           </Box>
 
-          {/* 📑 TAB 1: INFORMACIÓN PERSONAL */}
+          {/* TAB 1: INFORMACIÓN PERSONAL */}
           {tabSubMenu === 0 && (
               <Grid container spacing={{ xs: 2, sm: 3 }}>
                 <Grid item xs={12} md={6}>
@@ -381,17 +386,7 @@ export const Profile: FunctionComponent = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
-                  <label className="input-label">Puntos Acumulados:</label>
-                  <TextField
-                      fullWidth
-                      disabled
-                      placeholder="0"
-                      className="pill-input"
-                      value={puntos}
-                  />
-                </Grid>
-
+              
                 <Grid item xs={12} md={6}>
                   <label className="input-label">Teléfono:</label>
                   <TextField
@@ -439,7 +434,7 @@ export const Profile: FunctionComponent = () => {
               </Grid>
           )}
 
-          {/* 📑 TAB 2: PREFERENCIAS DE VIAJE */}
+          {/* TAB 2: PREFERENCIAS DE VIAJE */}
           {tabSubMenu === 1 && (
               <Grid container spacing={{ xs: 2, sm: 3 }}>
                 {preferenciasObligatorias && !estaPreferenciasCompletas && (
@@ -460,6 +455,11 @@ export const Profile: FunctionComponent = () => {
                   const esMultiple = pregunta.esMultiple || false;
                   const valorActual = preferencias[pregunta.id] || (esMultiple ? [] : '');
 
+                  // 💡 Inyectamos la opción de accesibilidad solo en tipoAcceso
+                  const opcionesRender = pregunta.id === 'tipoAcceso'
+                      ? [...pregunta.opciones, OPCION_ACCESIBILIDAD_DISCAPACIDAD]
+                      : pregunta.opciones;
+
                   return (
                       <Grid item xs={12} md={6} key={pregunta.id}>
                         <label className="input-label">
@@ -477,7 +477,7 @@ export const Profile: FunctionComponent = () => {
                                   ? (selected) => (
                                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                         {(selected as string[]).map((val) => {
-                                          const opt = pregunta.opciones.find(o => o.value === val);
+                                          const opt = opcionesRender.find(o => o.value === val);
                                           return (
                                               <Chip
                                                   key={val}
@@ -504,7 +504,7 @@ export const Profile: FunctionComponent = () => {
                               <MenuItem value="">-- Sin Especificar --</MenuItem>
                           )}
 
-                          {pregunta.opciones.map((opcion) => (
+                          {opcionesRender.map((opcion) => (
                               <MenuItem key={opcion.value} value={opcion.value}>
                                 {esMultiple && (
                                     <Checkbox
@@ -539,7 +539,7 @@ export const Profile: FunctionComponent = () => {
           </Grid>
         </Paper>
 
-        {/* ❤️ SECCIÓN DE DESTINOS FAVORITOS */}
+        {/* SECCIÓN DE DESTINOS FAVORITOS */}
         {favoritos.length > 0 && (
             <Box sx={{ mt: { xs: 4, sm: 6 } }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
@@ -589,33 +589,6 @@ export const Profile: FunctionComponent = () => {
               </Grid>
             </Box>
         )}
-
-        {/* 🏔️ SECCIÓN ÚLTIMOS DESTINOS EXPLORADOS / POPULARES */}
-        <Typography variant="h5" fontWeight="bold" sx={{ mt: { xs: 4, sm: 6 }, mb: 3, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-          Últimos Destinos Explorados
-        </Typography>
-
-        <Grid container spacing={3}>
-          <div className="carousel-wrapper">
-            <h2 className="section-title">Destinos Populares</h2>
-
-            {lugares.length > 0 && (
-                <div className="slider-container">
-                  <button className="nav-btn left" onClick={() => scroll("left", scrollRef)}>
-                    <ArrowBackIosIcon fontSize="small" />
-                  </button>
-                  <div className="cards-track" ref={scrollRef}>
-                    {lugares.map((post, index) => (
-                        <FeaturedPost key={index} post={post} ventana="principal" sub="0" />
-                    ))}
-                  </div>
-                  <button className="nav-btn right" onClick={() => scroll("right", scrollRef)}>
-                    <ArrowForwardIosIcon fontSize="small" />
-                  </button>
-                </div>
-            )}
-          </div>
-        </Grid>
       </Box>
   );
 };

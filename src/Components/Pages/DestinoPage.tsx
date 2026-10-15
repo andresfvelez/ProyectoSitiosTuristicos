@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-// Material UI Components
 import {
   Box,
   Grid,
@@ -21,7 +20,6 @@ import {
   reportarLugar
 } from "../../services/lugaresService";
 
-// Icons
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import StarHalfIcon from "@mui/icons-material/StarHalf";
@@ -36,17 +34,15 @@ import LandscapeIcon from '@mui/icons-material/Landscape';
 import FlagIcon from '@mui/icons-material/Flag';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-
-// Ant Design Components
-import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
-
-// Local Assets & Components
-import Missingimg from "../../Layouts/Images/missing.png";
-import FeaturedPost from './Seccions/Cards';
-import "../Pages/styles/Lugar.css";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
+
+import { Button, Form, message, Modal, Popconfirm, Input } from "antd";
+
+import Missingimg from "../../Layouts/Images/missing.png";
+import FeaturedPost from './Seccions/Cards';
+import "../Pages/styles/Lugar.css";
 import MapaUbicacion from "./Seccions/Localizacionleaf";
 import { LugarTuristico, Opinion } from "../models/LugarTuristico";
 import SeccionComentarios from "./Seccions/Comments";
@@ -55,13 +51,12 @@ import { calcularDistanciaKm } from "../../services/ValidacionLugar";
 import { useAuth } from "../../auth/AuthProvider";
 import { eliminarFavorito, guardarFavorito, verificarEsFavorito } from "../../services/usuariosService";
 
-const Pagina2 = () => {
+const Destino = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm<any>();
   const { usuario } = useAuth();
 
-  // Estados generales
   const [activeTab, setActiveTab] = useState<string>("auto");
   const [showlocalizacion, setshowlocalizacion] = useState<boolean>(true);
   const [cargando, setCargando] = useState<boolean>(true);
@@ -70,15 +65,14 @@ const Pagina2 = () => {
   const [info, setinfo] = useState<LugarTuristico | null>(null);
   const [cardseleccionado, setcardseleccionado] = useState<any[]>([]);
 
-  // 🚩 Estados para el Reporte
   const [modalReporte, setModalReporte] = useState<boolean>(false);
   const [motivoReporte, setMotivoReporte] = useState<string>("");
   const [enviandoReporte, setEnviandoReporte] = useState<boolean>(false);
 
-  // ❤️ Estados para Favoritos
   const [esFavorito, setEsFavorito] = useState<boolean>(false);
   const [procesandoFavorito, setProcesandoFavorito] = useState<boolean>(false);
 
+  // Apertura controlada del formulario de reporte
   const handleAbrirModalReporte = () => {
     if (!usuario) {
       message.warning("Debes iniciar sesión para reportar un sitio.");
@@ -88,6 +82,7 @@ const Pagina2 = () => {
     setModalReporte(true);
   };
 
+  // Envío de queja o reporte a la colección administrativa
   const handleConfirmarReporte = async () => {
     if (!motivoReporte.trim()) {
       message.warning("Por favor ingresa el motivo del reporte.");
@@ -96,9 +91,8 @@ const Pagina2 = () => {
 
     if (!info?.id || !usuario) return;
 
-
     setEnviandoReporte(true);
-    const exito = await reportarLugar(info.id, usuario.uid, motivoReporte);
+    const exito = await reportarLugar(info.id, usuario.uid, motivoReporte.trim());
     setEnviandoReporte(false);
 
     if (exito) {
@@ -110,6 +104,7 @@ const Pagina2 = () => {
     }
   };
 
+  // Conmutación de estado de marcador favorito
   const handleToggleFavorito = async () => {
     if (!usuario) {
       message.warning("Debes iniciar sesión para guardar en favoritos.");
@@ -133,7 +128,7 @@ const Pagina2 = () => {
       const exito = await guardarFavorito(info.id, usuario.uid);
       if (exito) {
         setEsFavorito(true);
-        message.success("¡Guardado en tus favoritos!");
+        message.success("Guardado en tus favoritos.");
       } else {
         message.error("No se pudo guardar en favoritos.");
       }
@@ -142,55 +137,70 @@ const Pagina2 = () => {
     setProcesandoFavorito(false);
   };
 
+  // Carga asíncrona de datos del destino y cálculo de proximidad geográfica
   const cargarLugar = useCallback(async () => {
     if (!id) {
-      console.error("No se proporcionó un ID en la URL");
       setCargando(false);
       return;
     }
 
+    let isMounted = true;
     setCargando(true);
-    const destino = await obtenerLugarPorId(id);
-    setinfo(destino);
 
-    if (destino && usuario?.uid && id) {
-      const fav = await verificarEsFavorito(id, usuario.uid);
-      setEsFavorito(fav);
-    }
+    try {
+      const destino = await obtenerLugarPorId(id);
 
-    if (destino && destino.latitud && destino.longitud) {
-      const todosLosLugares = await obtenerLugares();
+      if (!isMounted) return;
+      setinfo(destino);
 
-      const rests: LugarTuristico[] = [];
-      const hots: LugarTuristico[] = [];
+      if (destino && usuario?.uid && id) {
+        const fav = await verificarEsFavorito(id, usuario.uid);
+        if (isMounted) setEsFavorito(fav);
+      }
 
-      todosLosLugares.forEach((lugar) => {
-        if (lugar.id === destino.id) return;
+      if (destino && destino.latitud && destino.longitud) {
+        const todosLosLugares = await obtenerLugares();
 
-        if (lugar.latitud && lugar.longitud) {
-          const distKm = calcularDistanciaKm(
-              destino.latitud, destino.longitud,
-              lugar.latitud, lugar.longitud
-          );
+        const rests: LugarTuristico[] = [];
+        const hots: LugarTuristico[] = [];
 
-          if (distKm <= 3.0) {
-            if (lugar.categoria === 'restaurante') rests.push(lugar);
-            if (lugar.categoria === 'hotel') hots.push(lugar);
+        todosLosLugares.forEach((lugar) => {
+          if (lugar.id === destino.id) return;
+
+          if (lugar.latitud && lugar.longitud) {
+            const distKm = calcularDistanciaKm(
+                destino.latitud, destino.longitud,
+                lugar.latitud, lugar.longitud
+            );
+
+            if (distKm <= 3.0) {
+              if (lugar.categoria === 'restaurante') rests.push(lugar);
+              if (lugar.categoria === 'hotel') hots.push(lugar);
+            }
           }
-        }
-      });
+        });
 
-      setRestaurantesCercanos(rests);
-      setHotelesCercanos(hots);
+        if (isMounted) {
+          setRestaurantesCercanos(rests);
+          setHotelesCercanos(hots);
+        }
+      }
+    } finally {
+      if (isMounted) {
+        setCargando(false);
+      }
     }
 
-    setCargando(false);
+    return () => {
+      isMounted = false;
+    };
   }, [id, usuario?.uid]);
 
   useEffect(() => {
     cargarLugar();
   }, [cargarLugar]);
 
+  // Cálculo visual para la representación de estrellas
   const stars = useMemo(() => {
     const starArr = Array(5).fill("0");
     if (info?.puntuacion !== undefined && info?.puntuacion !== null) {
@@ -214,6 +224,7 @@ const Pagina2 = () => {
     return info?.opiniones && Array.isArray(info.opiniones) ? info.opiniones : [];
   }, [info?.opiniones]);
 
+  // Filtro de servicios complementarios cercanos
   const handleFilter = (tipo: string) => {
     setActiveTab(tipo);
     if (tipo === "restaurante") {
@@ -263,7 +274,7 @@ const Pagina2 = () => {
       <>
         <Box sx={{ bgcolor: "#fdfdfd", minHeight: "100vh", overflowX: "hidden" }}>
 
-          {/* BANNER PRINCIPAL RESPONSIVE */}
+          {/* Banner de portada con soporte adaptativo */}
           <Paper
               sx={{
                 position: "relative",
@@ -283,14 +294,13 @@ const Pagina2 = () => {
               }}
           />
 
-          {/* CONTENIDO PRINCIPAL */}
+          {/* Sección principal de detalles */}
           <Box sx={{ px: { xs: 2, sm: 4, md: 8 } }}>
             <Grid container spacing={{ xs: 3, md: 5 }}>
 
-              {/* COLUMNA IZQUIERDA */}
+              {/* Columna izquierda: Información, servicios y mapa */}
               <Grid item xs={12} md={7}>
 
-                {/* ENCABEZADO */}
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
                   <Typography
                       variant="h4"
@@ -352,7 +362,7 @@ const Pagina2 = () => {
                   {info?.descripcion}.
                 </Typography>
 
-                {/* ETIQUETAS */}
+                {/* Etiquetas de características y servicios */}
                 <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 1, mb: 3 }}>
                   {info?.petFriendly && (
                       <Chip
@@ -391,7 +401,7 @@ const Pagina2 = () => {
                   ))}
                 </Box>
 
-                {/* QUÉ SE RECOMIENDA LLEVAR */}
+                {/* Recomendaciones de indumentaria y equipo */}
                 {info?.queLlevar && (
                     <Box
                         sx={{
@@ -415,7 +425,7 @@ const Pagina2 = () => {
                     </Box>
                 )}
 
-                {/* BOTONES CON MULTI-FILA AUTOMÁTICA Y ESPACIADO FLEXIBLE EN MÓVIL */}
+                {/* Botones de navegación contextual */}
                 <Stack
                     direction="row"
                     sx={{
@@ -449,7 +459,7 @@ const Pagina2 = () => {
                       onClick={() => handleFilter("auto")}
                       style={{ padding: '8px 14px', fontSize: '0.85rem' }}
                   >
-                    Localizacion <LocationOnIcon sx={{ ml: 0.5, fontSize: 18, color: "gold" }} />
+                    Localización <LocationOnIcon sx={{ ml: 0.5, fontSize: 18, color: "gold" }} />
                   </button>
                 </Stack>
 
@@ -488,7 +498,7 @@ const Pagina2 = () => {
                         }}
                     >
                       <Typography variant="subtitle1" fontWeight="800" color="#334155" gutterBottom sx={{ fontSize: "0.95rem" }}>
-                        No hay {activeTab === "restaurante" ? "restaurantes" : "hoteles"} registrados en un radio de 3 km 📍
+                        No hay {activeTab === "restaurante" ? "restaurantes" : "hoteles"} registrados en un radio de 3 km.
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.82rem" }}>
                         Explora otros sitios de la plataforma o revisa la pestaña de localización en el mapa.
@@ -496,7 +506,7 @@ const Pagina2 = () => {
                     </Box>
                 )}
 
-                {/* CONTENEDOR DEL MAPA ADAPTADO PARA MÓVILES */}
+                {/* Mapa de geolocalización satelital */}
                 {showlocalizacion && (
                     <Box sx={{ py: { xs: 1, md: 3 }, width: "100%", overflow: "hidden" }}>
                       <Typography variant="h6" fontWeight="800" sx={{ mb: 1.5, fontSize: "1.1rem" }}>
@@ -512,7 +522,7 @@ const Pagina2 = () => {
 
               </Grid>
 
-              {/* COLUMNA DERECHA (SIDEBAR) */}
+              {/* Columna derecha: Tarjeta fija de datos y reservas */}
               <Grid item xs={12} md={5}>
                 <Paper sx={{ borderRadius: "24px", overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0" }}>
 
@@ -521,7 +531,7 @@ const Pagina2 = () => {
                         src={info?.imagenes && info.imagenes.length > 0
                             ? (info.imagenes[0].startsWith('data:') ? info.imagenes[0] : `data:image/jpeg;base64,${info.imagenes[0]}`)
                             : Missingimg}
-                        alt="sidebar-img"
+                        alt="Vista previa lateral"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   </Box>
@@ -602,7 +612,7 @@ const Pagina2 = () => {
               </Grid>
             </Grid>
 
-            {/* SECCIÓN COMENTARIOS */}
+            {/* Sección de valoraciones comunitarias */}
             <SeccionComentarios
                 comentariosIniciales={listaOpiniones}
                 usuarioLogueado={usuario}
@@ -621,7 +631,7 @@ const Pagina2 = () => {
 
                   const exito = await agregarOpinionLugar(info.id, nuevaOpinion);
                   if (exito) {
-                    message.success("¡Gracias por compartir tu opinión!");
+                    message.success("Gracias por compartir tu opinión.");
                     cargarLugar();
                   } else {
                     message.error("Ocurrió un problema al guardar tu opinión.");
@@ -631,7 +641,7 @@ const Pagina2 = () => {
           </Box>
         </Box>
 
-        {/* 🚩 MODAL DE REPORTE */}
+        {/* Modal interactivo de reporte de contenido */}
         <Modal
             title={
               <Stack direction="row" alignItems="center" spacing={1}>
@@ -649,14 +659,14 @@ const Pagina2 = () => {
             style={{ maxWidth: "480px" }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1, fontSize: "0.85rem" }}>
-            ¿Hay algo engañoso o inapropiado en este destino? Escribe el motivo para que el equipo de moderadores lo revise.
+            Describe los motivos de la irregularidad detectada en este destino para su revisión en la consola de moderación.
           </Typography>
 
           <Input.TextArea
               rows={4}
               value={motivoReporte}
               onChange={(e) => setMotivoReporte(e.target.value)}
-              placeholder="Ejemplo: La información de ubicación es errónea o el lugar no cumple con los servicios ofrecidos..."
+              placeholder="Describe la inconsistencia o motivo de la queja..."
               style={{ borderRadius: "12px", marginBottom: "20px" }}
           />
 
@@ -667,7 +677,7 @@ const Pagina2 = () => {
 
             <Popconfirm
                 title="¿Confirmar envío del reporte?"
-                description="Se enviará la notificación al panel de administración."
+                description="Se notificará a los administradores del sistema."
                 onConfirm={handleConfirmarReporte}
                 okText="Sí, reportar"
                 cancelText="No, revisar"
@@ -684,4 +694,4 @@ const Pagina2 = () => {
   );
 };
 
-export default Pagina2;
+export default Destino;

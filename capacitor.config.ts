@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.colexplore.app',
-  appName: 'ColExplore',
+  appName: 'TurisCol',
   webDir: 'build',
   plugins: {
     GoogleAuth: {

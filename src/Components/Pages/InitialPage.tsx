@@ -7,69 +7,78 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { LugarTuristico } from '../models/LugarTuristico';
 import {
     obtenerImagenesPorDestino,
-    obtenerLugares, recalcularPuntuacionesGenerales
+    obtenerLugares
 } from "../../services/lugaresService";
 import FeaturedPost from './Seccions/Cards';
 import "../Pages/styles/Homepage.css";
-import {ejecutarPobladoComentariosFaltantes} from "./poblarOpiniones";
-import {exportarLugaresSinOpinionesAJSON, obtenerLlavesGemini} from "../../services/IA/Iaservice";
-import {curarLugaresYComentariosDuplicados} from "./reemplazarComentarios";
-import {poblarEtiquetasAventura} from "./aplicarEtiquetas";
-import {ejecutarConsultaIA} from "../../services/IA/IaExecuter";
-import {auth} from "../../firebase/firebaseConfig";
 
-const InitialPage = () => {
+const InitialPage: React.FC = () => {
     const navigate = useNavigate();
 
     const [lugaresBanner, setLugaresBanner] = useState<LugarTuristico[]>([]);
     const [lugaresPopulares, setLugaresPopulares] = useState<LugarTuristico[]>([]);
 
     const [cargando, setCargando] = useState<boolean>(true);
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [activeIndex, setActiveIndex] = useState<number>(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        let isMounted = true;
+
         const cargarTodo = async () => {
             setCargando(true);
-            const listaLugares = await obtenerLugares();
+            try {
+                // 1. Obtenemos el listado ligero (solo metadatos, sin fotos pesadas)
+                const listaLugares = await obtenerLugares();
 
-            //recalcularPuntuacionesGenerales();
-            //curarLugaresYComentariosDuplicados();
-            //poblarEtiquetasAventura();
-            /*
-            const usuarioActual = auth.currentUser;
-            if (usuarioActual!=null)
-            {
-                console.log(usuarioActual)
-                const consulta= await ejecutarConsultaIA(usuarioActual.uid);
-                console.log(consulta)
+                // 2. Ordenamos primero por puntuación en memoria
+                const ordenados = [...listaLugares].sort(
+                    (a, b) => (b.puntuacion || 0) - (a.puntuacion || 0)
+                );
+
+                // 3. Tomamos únicamente los 20 mejores destinos
+                const top20Candidatos = ordenados.slice(0, 20);
+
+                // 4. Descargamos fotos EXCLUSIVAMENTE para los 20 mejores (no para toda la BD)
+                const top20ConFotos = await Promise.all(
+                    top20Candidatos.map(async (lugar) => {
+                        try {
+                            const fotos = await obtenerImagenesPorDestino(lugar.id!);
+                            return {
+                                ...lugar,
+                                imagenes: fotos || []
+                            };
+                        } catch {
+                            return { ...lugar, imagenes: [] };
+                        }
+                    })
+                );
+
+                if (isMounted) {
+                    // Los 5 mejores alimentan el banner y los 20 la pista de populares
+                    setLugaresBanner(top20ConFotos.slice(0, 5));
+                    setLugaresPopulares(top20ConFotos);
+                }
+            } catch {
+                if (isMounted) {
+                    setLugaresBanner([]);
+                    setLugaresPopulares([]);
+                }
+            } finally {
+                if (isMounted) {
+                    setCargando(false);
+                }
             }
-
-             */
-
-            const lugaresConFotos = await Promise.all(
-                listaLugares.map(async (lugar) => {
-                    const fotos = await obtenerImagenesPorDestino(lugar.id!);
-                    return {
-                        ...lugar,
-                        imagenes: fotos
-                    };
-                })
-            );
-
-            // Ordenamiento por puntuación descendente
-            const ordenados = lugaresConFotos.sort(
-                (a, b) => (b.puntuacion || 0) - (a.puntuacion || 0)
-            );
-
-            setLugaresBanner(ordenados.slice(0, 5));
-            setLugaresPopulares(ordenados.slice(0, 20));
-            setCargando(false);
         };
 
         cargarTodo();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
+    // Navegación secuencial del carrusel principal
     const scrollBanner = (direction: 'left' | 'right') => {
         if (lugaresBanner.length === 0) return;
         if (direction === "left") {
@@ -79,6 +88,7 @@ const InitialPage = () => {
         }
     };
 
+    // Desplazamiento horizontal de la pista de destinos populares
     const scroll = (direction: 'left' | 'right') => {
         if (scrollRef.current) {
             const { scrollLeft, clientWidth } = scrollRef.current;
@@ -96,14 +106,16 @@ const InitialPage = () => {
     if (cargando) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                <Typography variant="h6" color="text.secondary" fontWeight="600">Cargando destinos...</Typography>
+                <Typography variant="h6" color="text.secondary" fontWeight="600">
+                    Cargando destinos...
+                </Typography>
             </Box>
         );
     }
 
     return (
         <Box sx={{ pb: 6, pt: 2, px: { xs: 2, md: 4 } }}>
-            {/* 🌟 BANNER HERO ESTILIZADO CON TOP 5 */}
+            {/* Carrusel de elementos destacados (Top 5) */}
             {lugaresBanner.length > 0 && (
                 <Box
                     sx={{
@@ -117,7 +129,6 @@ const InitialPage = () => {
                         height: { xs: '320px', md: '460px' }
                     }}
                 >
-                    {/* BOTÓN IZQUIERDO */}
                     <IconButton
                         onClick={() => scrollBanner("left")}
                         sx={{
@@ -136,7 +147,6 @@ const InitialPage = () => {
                         <ArrowBackIosNewIcon fontSize="small" />
                     </IconButton>
 
-                    {/* BOTÓN DERECHO */}
                     <IconButton
                         onClick={() => scrollBanner("right")}
                         sx={{
@@ -155,7 +165,6 @@ const InitialPage = () => {
                         <ArrowForwardIosIcon fontSize="small" />
                     </IconButton>
 
-                    {/* PISTA DEL BANNER */}
                     <Box
                         sx={{
                             display: 'flex',
@@ -171,7 +180,7 @@ const InitialPage = () => {
                             return (
                                 <Box
                                     key={lugar.id}
-                                    onClick={() => navigate(`/pagina2/${lugar.id}`)}
+                                    onClick={() => navigate(`/destino/${lugar.id}`)}
                                     sx={{
                                         minWidth: '100%',
                                         height: '100%',
@@ -185,7 +194,6 @@ const InitialPage = () => {
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
 
-                                    {/* OVERLAY CON MÁRGENES Y DEGRADADO SUAVE */}
                                     <Box
                                         sx={{
                                             position: 'absolute',
@@ -195,7 +203,7 @@ const InitialPage = () => {
                                             background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%)',
                                             pt: 8,
                                             pb: 4,
-                                            px: { xs: 7, md: 9 }, // 👈 Espaciado extra a los lados para no chocar con los botones
+                                            px: { xs: 7, md: 9 },
                                             color: '#ffffff'
                                         }}
                                     >
@@ -240,7 +248,7 @@ const InitialPage = () => {
                 </Box>
             )}
 
-            {/* 🏆 DESTINOS POPULARES (TOP 20) */}
+            {/* Catálogo de destinos populares (Top 20) */}
             <Box sx={{ maxWidth: '1300px', margin: '0 auto' }}>
                 <Typography variant="h5" fontWeight="800" sx={{ mb: 3, color: '#0f172a' }}>
                     Destinos Populares

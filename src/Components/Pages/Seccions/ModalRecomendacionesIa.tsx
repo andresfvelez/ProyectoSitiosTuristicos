@@ -294,7 +294,7 @@ export const ModalRecomendacionesIA: React.FC<ModalRecomendacionesIAProps> = ({
                                                     size="small"
                                                     onClick={() => {
                                                         onClose();
-                                                        navigate(`/pagina2/${lugar.id}`);
+                                                        navigate(`/destino/${lugar.id}`);
                                                     }}
                                                     sx={{
                                                         width: 'fit-content',
