@@ -8,7 +8,7 @@ import {
 export function buildAIPayload(
     userContext: UserContext,
     availablePlaces: TouristPlace[],
-    maxResults: number = 20
+    maxResults: number = 10
 ): AIPayload {
 
     // Ponderación optimizada para priorizar el gusto real del usuario

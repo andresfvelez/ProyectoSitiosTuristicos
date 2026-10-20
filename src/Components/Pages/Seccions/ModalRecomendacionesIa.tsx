@@ -48,7 +48,7 @@ export const ModalRecomendacionesIA: React.FC<ModalRecomendacionesIAProps> = ({
         if (!userId) return;
         setCargando(true);
         try {
-            const resultados = await ejecutarConsultaIA(userId, 20);
+            const resultados = await ejecutarConsultaIA(userId, 10);
             setRecomendaciones(resultados || []);
             setActiveIndex(0);
         } catch (error) {

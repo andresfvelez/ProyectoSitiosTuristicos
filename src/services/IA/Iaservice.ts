@@ -1,20 +1,15 @@
-import { buildAIPayload } from './ia-payload.builder';
-import { mapFirestorePlaceToAI } from './mapper';
-import { UserContext } from '../../Components/models/IaPayload';
+import {buildAIPayload} from './ia-payload.builder';
+import {mapFirestorePlaceToAI} from './mapper';
+import {UserContext} from '../../Components/models/IaPayload';
 import CryptoJS from "crypto-js";
-import { buildAIPromptRTCF } from "./ia-prompt-rtccf-meth";
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-    doc,
-    getDoc
-} from 'firebase/firestore';
 import { db } from '../../firebase/firebaseConfig';
 import { LugarTuristico, Opinion } from '../../Components/models/LugarTuristico';
 import { obtenerVistasDirectoDesdeGA4 } from '../ga4Services';
 import { UserProfileData } from "../../Components/models/Usuarios";
+import {LugarTuristico, Opinion} from '../../Components/models/LugarTuristico';
+import {obtenerVistasDirectoDesdeGA4} from '../ga4Services';
+import {UserProfileData} from "../../Components/models/Usuarios";
+import {obtenerFavoritosPorUsuario} from '../lugaresService';
 
 let indiceKeyActual = 0;
 let listaKeysDesencriptadas: string[] = [];
@@ -27,12 +22,6 @@ const MODELOS_JERARQUIA = [
     "gemini-1.5-flash"
 ];
 
-/* ==========================================================================
-   1. GESTIÓN Y ROTACIÓN DE CREDENCIALES CIFRADAS
-   ========================================================================== */
-
-/**
- * Recupera y descifra el conjunto de llaves de Google Gemini almacenadas en Firestore.
  */
 export const obtenerLlavesGemini = async (): Promise<string[]> => {
     if (listaKeysDesencriptadas.length > 0) return listaKeysDesencriptadas;
@@ -58,14 +47,6 @@ export const obtenerLlavesGemini = async (): Promise<string[]> => {
     }
 };
 
-/* ==========================================================================
-   2. CLIENTE DE INFERENCIA RESILIENTE
-   ========================================================================== */
-
-/**
- * Ejecuta la consulta generativa sobre la API de Gemini implementando rotación de llaves,
- * tolerancia a fallos por modelo (fallback) y control anti-duplicados por concurrencia.
- */
 export const consultarGeminiConRotacion = async (
     prompt: string,
     maxTokens = 4096
@@ -109,13 +90,11 @@ export const consultarGeminiConRotacion = async (
 
                         const data = await response.json();
 
-                        // Agotamiento de cuota diaria o tasa de peticiones (HTTP 429)
                         if (response.status === 429 || data?.error?.status === "RESOURCE_EXHAUSTED") {
                             keyAgotada = true;
                             break;
                         }
 
-                        // Servidor saturado o mantenimiento temporal (HTTP 503)
                         if (response.status === 503) {
                             const pausa = intento * 3000;
                             await new Promise(r => setTimeout(r, pausa));
@@ -152,14 +131,6 @@ export const consultarGeminiConRotacion = async (
     }
 };
 
-/* ==========================================================================
-   3. CONSTRUCCIÓN DE CONTEXTO Y POPULARIDAD
-   ========================================================================== */
-
-/**
- * Consulta la base de datos de destinos aprobados, unifica las opiniones comunitarias
- * e integra las métricas de tráfico procedentes de Google Analytics 4.
- */
 export const obtenerContextoParaIA = async (): Promise<LugarTuristico[]> => {
     try {
         const [snapshotLugares, snapshotOpiniones, vistasGA4] = await Promise.all([
@@ -216,16 +187,21 @@ export const obtenerPerfilUsuario = async (uid: string): Promise<UserProfileData
     }
 };
 
-/**
- * Obtiene las preferencias estructuradas del usuario para armar el contexto del modelo generativo.
- */
 export const obtenerContextoUsuarioParaIA = async (uid: string): Promise<UserContext | null> => {
     if (!uid) return null;
 
-    const dataUsuario = await obtenerPerfilUsuario(uid);
+    const [dataUsuario, favoritosUsuario] = await Promise.all([
+        obtenerPerfilUsuario(uid),
+        obtenerFavoritosPorUsuario(uid)
+    ]);
+
     if (!dataUsuario) return null;
 
-    const userContext: UserContext = {
+    const nombresFavoritos = (favoritosUsuario || [])
+        .map((lugar) => lugar.nombre)
+        .filter((nombre): nombre is string => Boolean(nombre));
+
+    return {
         userId: uid,
         preferences: {
             clima: dataUsuario.clima || 'templado',
@@ -237,20 +213,12 @@ export const obtenerContextoUsuarioParaIA = async (uid: string): Promise<UserCon
                 ? dataUsuario.companiaIdeal
                 : ['pareja', 'amigos']
         },
-        lastVisitedPlaces: [],
+        lastVisitedPlaces: nombresFavoritos,
+        favoritePlaces: nombresFavoritos,
         avoidedEnvironments: []
-    };
-
-    return userContext;
+    } as UserContext;
 };
 
-/* ==========================================================================
-   4. ORQUESTADOR DE RECOMENDACIONES (PIPELINE IA)
-   ========================================================================== */
-
-/**
- * Construye el payload semántico, formula el prompt bajo estándar RTCF y resuelve la inferencia.
- */
 export async function getAIRecommendations(
     rawPlacesFromDB: any[],
     userContext: UserContext,
@@ -282,10 +250,6 @@ export async function getAIRecommendations(
         return { recommendations: [] };
     }
 }
-
-/* ==========================================================================
-   5. UTILIDADES Y EXPORTACIÓN DE DATOS
-   ========================================================================== */
 
 export const exportarLugaresSinOpinionesAJSON = async () => {
     try {

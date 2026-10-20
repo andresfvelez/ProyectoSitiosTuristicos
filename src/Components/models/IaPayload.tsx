@@ -12,6 +12,7 @@ export interface UserContext {
     preferences: UserPreferences;
     currentLocation?: { lat: number; lng: number };
     // Opcionales para no romper la llamada mientras no exista historial en BD
+    favoritePlaces?: string[];
     lastVisitedPlaces?: string[];
     avoidedEnvironments?: string[];
 }
