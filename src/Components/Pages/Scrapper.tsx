@@ -177,7 +177,7 @@ const Scrapper = () => {
                     generationConfig: {
                         temperature: 0.1, // Mantiene la respuesta rígida al JSON solicitado sin inventar texto libre
                         topP: 0.95,
-                        maxOutputTokens: 1024,
+                        maxOutputTokens: 2048,
                     }
                 })
             });
